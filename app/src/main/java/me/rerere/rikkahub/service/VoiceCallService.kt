@@ -722,6 +722,13 @@ class VoiceCallService : Service(), KoinComponent {
      * 当 ASR 从 Recording -> Idle 且转写不为空时, 立即发送.
      *
      * 加了 !isMuted 判断, 避免静音操作本身触发的 Recording→非Recording 跳变被误判成"该发送了".
+     *
+     * 【重要】对"会给出已确定文本"的增量型 ASR (Volcengine), 这里坚决不发:
+     * 它的 transcript 是"整场会话累积"的, 从这里发就会把上一句重复发一遍
+     * (最典型的触发场景是 ASR 报错: status 变 Error 也是 Recording→非Recording,
+     *  而那时 _uiState.status 可能还没来得及变成 Error, 仍然等于 Listening).
+     * 这类 ASR 的发送完全由 VAD 的 A 路径按增量负责, 不会漏 —— A 路径在
+     * Listening 期间每 100ms 轮询一次, "已确定但还没发"的文本会被它补发出去.
      */
     private fun startAsrMonitor() {
         asrMonitorJob?.cancel()
@@ -732,8 +739,15 @@ class VoiceCallService : Service(), KoinComponent {
 
                 // 检测到从 Recording 变为非 Recording
                 if (wasRecording && !isRecording && !isMuted && _uiState.value.status == VoiceCallStatus.Listening) {
+                    val isIncrementalAsr =
+                        asrState.finalizedText.isNotEmpty() || asrState.pendingText.isNotEmpty()
                     val transcript = asrState.transcript.trim()
-                    if (transcript.isNotEmpty() && _uiState.value.autoSendEnabled) {
+                    if (isIncrementalAsr) {
+                        Log.d(
+                            TAG,
+                            "ASR monitor: 增量型 ASR 跳过整段发送, 交给 VAD 增量路径 (transcript=${transcript.length} 字)"
+                        )
+                    } else if (transcript.isNotEmpty() && _uiState.value.autoSendEnabled) {
                         Log.d(TAG, "ASR monitor: Auto-send after ASR completed: $transcript")
                         sendCurrentMessage()
                     } else {

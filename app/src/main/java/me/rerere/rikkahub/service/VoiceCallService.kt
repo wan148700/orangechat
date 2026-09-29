@@ -50,6 +50,9 @@ import kotlin.uuid.Uuid
 
 private const val TAG = "VoiceCallService"
 
+// 少于这个长度的转写不发送: 过滤空白 / 单字噪音, 避免发出空消息
+private const val MIN_SEND_TRANSCRIPT_LENGTH = 2
+
 /**
  * 语音通话后台服务
  *
@@ -88,6 +91,12 @@ class VoiceCallService : Service(), KoinComponent {
     private var asrMonitorJob: Job? = null
     private var interruptDetectJob: Job? = null
     private var lastSpokenText: String = ""
+
+    // 增量发送 (Volcengine 这类会给出"已确定文本"的流式 ASR):
+    // 已经作为用户消息发出去的"已确定文本"前缀. 下一次只发它后面新增的部分,
+    // 所以不会再出现"上一句被重复发一遍"的问题.
+    // 只在 startCall() 里清零, 跨"轮"不清零 (服务端的文本是整场累积的).
+    private var sentFinalizedPrefix: String = ""
 
     // 跟踪 AI 消息的增量, 用于流式 TTS
     private var lastAssistantText: String = ""
@@ -265,6 +274,8 @@ class VoiceCallService : Service(), KoinComponent {
         hasSentCurrentMessage = false
         ttsSentLength = 0
         isMuted = false
+        // 新通话 = 从头开始: 增量发送指针清零 (挂断重打一次电话, 识别结果从零开始)
+        sentFinalizedPrefix = ""
 
         _uiState.update {
             it.copy(
@@ -333,7 +344,14 @@ class VoiceCallService : Service(), KoinComponent {
     /**
      * VAD: 检测用户停顿后自动发送 (仅 Listening 状态生效).
      *
-     * 优化: 更快的响应时间, 更灵敏的检测.
+     * 两条路径:
+     * - A 路径 (会给出"已确定文本"的流式 ASR, 例如 Volcengine):
+     *   服务端在 utterances 里用 definite 标记某句已判停确定, 这类文本只增不改 (append-only)。
+     *   只有当"出现了新的已确定文本"且"用户已经不再说话 (pendingText 为空)"时才发送,
+     *   而且只发新增的那部分 —— 所以不会再重复发上一句, 也不会在句子中间被切断。
+     * - B 路径 (兜底, 没有"已确定文本"的 ASR, 例如 SiliconFlow):
+     *   原逻辑保持不变: 转写稳定 800ms 或音量静默 2 秒就发送整段转写。
+     *
      * 阈值参数 (800ms / 2 字符 / 2 秒音量超时) 保持不变, 不要动.
      */
     private fun startVadDetection() {
@@ -345,6 +363,12 @@ class VoiceCallService : Service(), KoinComponent {
             val silenceThresholdMs = 800L
             val minTranscriptLength = 2
             val amplitudeTimeoutMs = 2000L
+            // A 路径: 已经有"已确定文本"但用户还在连续说话时, 最多憋这么久就先发出去,
+            // 否则超长连续说话可能一直等不到判停, 消息永远发不出去
+            val finalizedHoldMaxMs = 6000L
+            var pendingFinalizedSince = 0L
+            // 见过"已确定文本/未确定尾巴"就说明这个 ASR 支持 A 路径, 这一轮之后都走 A
+            var structuredAsr = false
 
             while (true) {
                 delay(100)
@@ -361,6 +385,48 @@ class VoiceCallService : Service(), KoinComponent {
                     lastAmplitudeTime = System.currentTimeMillis()
                 }
 
+                // ---------- A 路径: 只发"新增的已确定文本" ----------
+                val asrState = asr.state.value
+                val finalizedText = asrState.finalizedText
+                if (finalizedText.isNotEmpty() || asrState.pendingText.isNotEmpty()) {
+                    structuredAsr = true
+                }
+                if (structuredAsr) {
+                    if (finalizedText.isNotEmpty()) {
+                        // 服务端重连 / 改写了已确定文本时, 已发送前缀会失配, 必须归零重算
+                        if (!finalizedText.startsWith(sentFinalizedPrefix)) {
+                            Log.w(
+                                TAG,
+                                "已确定文本不再是已发送前缀 (sent=${sentFinalizedPrefix.length}, " +
+                                    "now=${finalizedText.length}), 重置增量发送指针"
+                            )
+                            sentFinalizedPrefix = ""
+                        }
+                        val newText = finalizedText.substring(sentFinalizedPrefix.length).trim()
+                        if (newText.length >= minTranscriptLength) {
+                            if (asrState.pendingText.isBlank()) {
+                                // 服务端已判停 + 没有未确定尾巴 = 用户说完了, 立刻发新增部分
+                                sendTranscript(newText, reason = "ASR 判停, 发送新增的已确定文本")
+                                sentFinalizedPrefix = finalizedText
+                                break
+                            }
+                            // 用户还在连续说话: 先不发, 但憋太久就把已确定的部分先发出去
+                            if (pendingFinalizedSince == 0L) {
+                                pendingFinalizedSince = System.currentTimeMillis()
+                            } else if (System.currentTimeMillis() - pendingFinalizedSince >= finalizedHoldMaxMs) {
+                                sendTranscript(newText, reason = "已确定文本积压 ${finalizedHoldMaxMs}ms")
+                                sentFinalizedPrefix = finalizedText
+                                pendingFinalizedSince = 0L
+                                break
+                            }
+                        } else {
+                            pendingFinalizedSince = 0L
+                        }
+                    }
+                    continue // 走 A 路径时不再执行下面的兜底逻辑, 避免重复发送
+                }
+
+                // ---------- B 路径 (兜底): 原逻辑保持不变 ----------
                 if (currentTranscript != lastTranscript) {
                     // 转写还在变化, 重置静音计时
                     lastTranscript = currentTranscript
@@ -388,19 +454,32 @@ class VoiceCallService : Service(), KoinComponent {
     }
 
     /**
-     * 发送当前转写的消息.
+     * 发送当前整段转写 (兜底路径用: SiliconFlow 这类"录一段 → 识别一段"的 ASR).
      * 不再调用 asr.stop() (ASR 要持续跑到整场通话结束).
      */
     private fun sendCurrentMessage() {
-        val transcript = _uiState.value.userTranscript.trim()
+        sendTranscript(_uiState.value.userTranscript.trim(), reason = "转写稳定 / 音量静默")
+    }
+
+    /**
+     * 把一段文本当成用户消息发给 AI.
+     *
+     * @param transcript 这次真正要发送的文本. 可能是整段转写, 也可能只是整场转写里
+     *                   "新增的已确定部分" (Volcengine 走增量发送).
+     * @param reason 触发原因, 只用于日志排查.
+     */
+    private fun sendTranscript(transcript: String, reason: String) {
         vadJob?.cancel()
 
-        if (transcript.isBlank()) {
+        // 空白 / 过短一律不发, 避免产生空消息或噪音消息
+        if (transcript.isBlank() || transcript.length < MIN_SEND_TRANSCRIPT_LENGTH) {
+            Log.d(TAG, "跳过发送: 文本为空或过短 (len=${transcript.length}, reason=$reason)")
             // 没有有效内容, 回到监听
             startListening()
             return
         }
 
+        Log.d(TAG, "发送用户消息 (reason=$reason): $transcript")
         _uiState.update {
             it.copy(
                 status = VoiceCallStatus.Processing,

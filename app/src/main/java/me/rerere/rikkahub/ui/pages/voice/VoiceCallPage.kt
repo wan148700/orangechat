@@ -14,15 +14,19 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -42,7 +46,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -71,9 +77,15 @@ private const val TAG = "VoiceCallPage"
 private val ColorBgWarm = Color(0xFFF6F3EF)      // 暖奶白纯色背景
 private val ColorBlob = Color(0xFFF2A77E)        // 光斑浅橙
 private val ColorStatusText = Color(0xFFA8A09A)  // 状态文字浅灰
-private val ColorSubtitle = Color(0xFF4A423C)    // 字幕文字 (浅底上必须够深才看得清)
+private val ColorSubtitleUser = Color(0xFFB8643E) // 用户说的话 (深橙, 暖白底上够清晰)
+private val ColorSubtitleAi = Color(0xFF4A423C)   // AI 回复 (深棕灰)
 private val ColorIcon = Color(0xFF4A423C)        // 麦克风细线图标
 private val ColorHangUp = Color(0xFFD9794F)      // 挂断图标 (偏深的浅橙)
+
+// 字幕行为参数
+private const val SubtitleFadeMs = 300            // 字幕淡入 / 淡出时长
+private const val SubtitleMaxSentences = 3        // 字幕最多同时显示最近几句
+private val SubtitleTopFadeHeight = 56.dp         // 字幕顶部渐隐高度
 
 /**
  * 语音通话页面 (ChatGPT 独立语音模式风格)
@@ -186,14 +198,12 @@ fun VoiceCallPage(
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 中部: 柔和光斑 + 下方状态文字 (状态文字从顶部移到这里, 弱化成浅灰小字)
+            // 顶部: 柔和光斑 + 下方状态文字 (固定不参与权重, 把剩余空间全让给字幕)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.padding(top = 64.dp)
             ) {
                 VoiceOrb(
                     amplitudes = uiState.amplitudes,
@@ -222,22 +232,19 @@ fun VoiceCallPage(
                 }
             }
 
-            // 字幕区: 按状态切换显示谁的字幕
-            // - 聆听/思考: 显示用户刚说的话 (思考时保留, 让用户确认 AI 听到了什么)
-            // - 传达/就绪: 显示 AI 的话 (传达时逐句增长, 说完后仍保留在屏上,
-            //   直到下一轮用户开始说话、Service 清掉 assistantText 才换掉)
-            val subtitleText = when (uiState.status) {
-                VoiceCallStatus.Listening,
-                VoiceCallStatus.Processing -> uiState.userTranscript
-                VoiceCallStatus.Speaking,
-                VoiceCallStatus.Idle -> uiState.assistantText
-                VoiceCallStatus.Error -> ""
-            }
-            if (subtitleText.isNotBlank()) {
-                StreamingSubtitle(
-                    text = subtitleText
-                )
-            }
+            // 字幕区: 占满"状态文字下方 → 按钮上方"的全部空间
+            // - 用户说话时显示"还没发出去"的那部分文字, 发出去以后淡出
+            // - AI 开始回复时, AI 的文字淡入
+            SubtitleArea(
+                userText = uiState.userPendingTranscript,
+                assistantText = uiState.assistantText,
+                showAssistant = uiState.status == VoiceCallStatus.Processing ||
+                    uiState.status == VoiceCallStatus.Speaking ||
+                    uiState.status == VoiceCallStatus.Idle,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            )
 
             // 错误信息 (保留, 方便调试)
             uiState.errorMessage?.let { error ->
@@ -286,40 +293,144 @@ fun VoiceCallPage(
 }
 
 /**
- * 多行流式字幕
+ * 字幕区
  *
- * - 自动换行, 超出容器高度向上滚动, 始终显示最新文字
- * - Listening/Processing 状态使用; Speaking/Idle 由上层隐藏
+ * - 只显示两块内容: 用户"还没发出去"的那句话 / AI 的回复, 两者切换时互相淡入淡出
+ * - 用户那句话发出去以后会先淡出再消失, 所以这里记住最后一个非空文本
+ * - 最多显示最近 [SubtitleMaxSentences] 句, 越旧的句子越浅; 顶部用背景色渐变做渐隐,
+ *   文字往上滚出可视区时是慢慢淡掉, 不是硬切
  */
 @Composable
-private fun StreamingSubtitle(
-    text: String,
+private fun SubtitleArea(
+    userText: String,
+    assistantText: String,
+    showAssistant: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    // 记住最后一个非空内容, 让"刚发出去 / 刚开始新回答"时旧内容还能淡出, 而不是瞬间消失
+    var lastUserText by remember { mutableStateOf("") }
+    LaunchedEffect(userText) {
+        if (userText.isNotBlank()) lastUserText = userText
+    }
+    var lastAssistantText by remember { mutableStateOf("") }
+    LaunchedEffect(assistantText) {
+        if (assistantText.isNotBlank()) lastAssistantText = assistantText
+    }
+
+    // 用户字幕: 正在说话 (还没切到 AI) 且确实有内容时才显示
+    val userAlpha by animateFloatAsState(
+        targetValue = if (!showAssistant && userText.isNotBlank()) 1f else 0f,
+        animationSpec = tween(SubtitleFadeMs),
+        label = "userSubtitleAlpha"
+    )
+    // AI 字幕: 有回复内容且轮到 AI 时显示
+    val assistantAlpha by animateFloatAsState(
+        targetValue = if (showAssistant && assistantText.isNotBlank()) 1f else 0f,
+        animationSpec = tween(SubtitleFadeMs),
+        label = "assistantSubtitleAlpha"
+    )
+
+    BoxWithConstraints(
+        modifier = modifier,
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        // 顶部渐隐最多只占字幕区的 1/3, 避免屏幕矮的时候遮罩把字幕整个吃掉
+        val topFadeHeight = minOf(SubtitleTopFadeHeight, maxHeight / 3)
+        if (userAlpha > 0.01f && lastUserText.isNotBlank()) {
+            SubtitleLines(
+                text = lastUserText,
+                color = ColorSubtitleUser,
+                modifier = Modifier.alpha(userAlpha)
+            )
+        }
+        if (assistantAlpha > 0.01f && lastAssistantText.isNotBlank()) {
+            SubtitleLines(
+                text = lastAssistantText,
+                color = ColorSubtitleAi,
+                modifier = Modifier.alpha(assistantAlpha)
+            )
+        }
+
+        // 顶部渐隐: 用背景色把最上面一段"吃掉", 文字往上滚时慢慢消失
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(topFadeHeight)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(ColorBgWarm, ColorBgWarm.copy(alpha = 0f))
+                    )
+                )
+        )
+    }
+}
+
+/**
+ * 多行字幕: 最多保留最近几句 (越旧越浅), 超出高度可滚动, 自动滚到最新
+ */
+@Composable
+private fun SubtitleLines(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val visibleSentences = splitSubtitleSentences(text).takeLast(SubtitleMaxSentences)
     val scrollState = rememberScrollState()
+
     // 文本增长时滚到最底部, 让最新内容始终可见
-    LaunchedEffect(text) {
-        if (text.isNotEmpty()) {
+    LaunchedEffect(visibleSentences) {
+        if (visibleSentences.isNotEmpty()) {
             scrollState.animateScrollTo(scrollState.maxValue)
         }
     }
 
     Column(
         modifier = modifier
-            .padding(horizontal = 36.dp, vertical = 16.dp)
-            .heightIn(max = 140.dp)
-            .verticalScroll(scrollState),
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .padding(horizontal = 36.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = text.ifBlank { " " },
-            color = ColorSubtitle.copy(alpha = 0.9f),
-            fontSize = 16.sp,
-            lineHeight = 24.sp,
-            fontWeight = FontWeight.Normal,
-            textAlign = TextAlign.Center
-        )
+        visibleSentences.forEachIndexed { index, sentence ->
+            // 距离最新一句越远, 颜色越浅
+            val fromLatest = visibleSentences.lastIndex - index
+            val sentenceAlpha = when (fromLatest) {
+                0 -> 1f
+                1 -> 0.62f
+                else -> 0.38f
+            }
+            Text(
+                text = sentence,
+                color = color.copy(alpha = sentenceAlpha),
+                fontSize = 16.sp,
+                lineHeight = 24.sp,
+                fontWeight = FontWeight.Normal,
+                textAlign = TextAlign.Center
+            )
+        }
     }
+}
+
+/**
+ * 按句末标点把文本拆成句子 (最后没结束的尾巴也算一句),
+ * 这样"越旧的句子越浅"才能逐句生效
+ */
+private fun splitSubtitleSentences(text: String): List<String> {
+    val endings = charArrayOf('。', '？', '！', '.', '?', '!', '\n')
+    val sentences = mutableListOf<String>()
+    val current = StringBuilder()
+    for (char in text) {
+        current.append(char)
+        if (char in endings) {
+            val sentence = current.toString().trim()
+            if (sentence.isNotEmpty()) sentences.add(sentence)
+            current.clear()
+        }
+    }
+    val tail = current.toString().trim()
+    if (tail.isNotEmpty()) sentences.add(tail)
+    return sentences
 }
 
 /**

@@ -53,6 +53,9 @@ private const val TAG = "VoiceCallService"
 // 少于这个长度的转写不发送: 过滤空白 / 单字噪音, 避免发出空消息
 private const val MIN_SEND_TRANSCRIPT_LENGTH = 2
 
+// 打断 AI 说话所需的新增"有效文字"个数 (字母/数字/汉字, 空格和标点不算)
+private const val INTERRUPT_MIN_NEW_CHARS = 2
+
 /**
  * 语音通话后台服务
  *
@@ -233,6 +236,8 @@ class VoiceCallService : Service(), KoinComponent {
                 launch {
                     asr.state.collect { asrState ->
                         updateAmplitudes(asrState.amplitudes)
+                        // 字幕用的"用户还没发出去的文字"要跟着 ASR 状态实时刷新
+                        refreshPendingUserTranscript()
                         if (asrState.status == me.rerere.asr.ASRStatus.Error) {
                             val msg = asrState.errorMessage ?: "语音识别发生未知错误"
                             Log.e(TAG, "ASR 底层报错, conversationId=$conversationId, msg=$msg")
@@ -281,6 +286,7 @@ class VoiceCallService : Service(), KoinComponent {
             it.copy(
                 status = VoiceCallStatus.Listening,
                 userTranscript = "",
+                userPendingTranscript = "",
                 errorMessage = null,
                 isMuted = false
             )
@@ -320,6 +326,7 @@ class VoiceCallService : Service(), KoinComponent {
             it.copy(
                 status = VoiceCallStatus.Listening,
                 userTranscript = "",
+                userPendingTranscript = "",
                 errorMessage = null
             )
         }
@@ -407,7 +414,7 @@ class VoiceCallService : Service(), KoinComponent {
                             if (asrState.pendingText.isBlank()) {
                                 // 服务端已判停 + 没有未确定尾巴 = 用户说完了, 立刻发新增部分
                                 sendTranscript(newText, reason = "ASR 判停, 发送新增的已确定文本")
-                                sentFinalizedPrefix = finalizedText
+                                markFinalizedSent(finalizedText)
                                 break
                             }
                             // 用户还在连续说话: 先不发, 但憋太久就把已确定的部分先发出去
@@ -415,7 +422,7 @@ class VoiceCallService : Service(), KoinComponent {
                                 pendingFinalizedSince = System.currentTimeMillis()
                             } else if (System.currentTimeMillis() - pendingFinalizedSince >= finalizedHoldMaxMs) {
                                 sendTranscript(newText, reason = "已确定文本积压 ${finalizedHoldMaxMs}ms")
-                                sentFinalizedPrefix = finalizedText
+                                markFinalizedSent(finalizedText)
                                 pendingFinalizedSince = 0L
                                 break
                             }
@@ -459,6 +466,41 @@ class VoiceCallService : Service(), KoinComponent {
      */
     private fun sendCurrentMessage() {
         sendTranscript(_uiState.value.userTranscript.trim(), reason = "转写稳定 / 音量静默")
+    }
+
+    /**
+     * 记下"这段已确定文本已经作为消息发出去了", 并刷新字幕。
+     *
+     * 只做记录 + 字幕刷新, 不参与任何发送判断。
+     */
+    private fun markFinalizedSent(finalizedText: String) {
+        sentFinalizedPrefix = finalizedText
+        refreshPendingUserTranscript()
+    }
+
+    /**
+     * 刷新"用户还没发出去的文字" (字幕专用)。
+     *
+     * 增量型 ASR (Volcengine) 的 userTranscript 是整场通话累积的, 直接当字幕会越堆越多,
+     * 所以这里去掉"已经作为消息发送"的前缀, 只留下还没发送的部分。
+     * 其它 ASR (SiliconFlow) 的转写本身就是"这一句", 直接等于 userTranscript。
+     */
+    private fun refreshPendingUserTranscript() {
+        val asrState = asr.state.value
+        val hasIncrementalText =
+            asrState.finalizedText.isNotEmpty() || asrState.pendingText.isNotEmpty()
+        val displayText = if (hasIncrementalText) {
+            val finalized = asrState.finalizedText
+            val unsentFinalized = if (finalized.startsWith(sentFinalizedPrefix)) {
+                finalized.substring(sentFinalizedPrefix.length)
+            } else {
+                finalized
+            }
+            unsentFinalized + asrState.pendingText
+        } else {
+            _uiState.value.userTranscript
+        }
+        _uiState.update { it.copy(userPendingTranscript = displayText) }
     }
 
     /**
@@ -670,40 +712,55 @@ class VoiceCallService : Service(), KoinComponent {
      * Speaking 状态下的打断检测.
      *
      * 与 startVadDetection (判断"该发送了") 职责不同:
-     * 这里只关心"用户是否开始说话了", 一旦检测到就立即打断, 不等静音判断.
+     * 这里只关心"用户是否真的开始说话了".
      *
-     * 用比 Listening 状态更高的音量阈值 (0.15f vs 0.05f), 降低被 AI 自己声音误触发的概率.
-     * 残留风险: AEC 不是 100% 完美, 外放音量很大或低端机型硬件 AEC 差时仍可能误触发,
-     * 后续可加音量差阈值调优, 但不阻塞现在的实现.
+     * 判定只看识别结果: 相对进入 Speaking 时, 必须识别出至少 [INTERRUPT_MIN_NEW_CHARS] 个
+     * "有效文字" (字母/数字/汉字, 空格和标点都不算).
+     * 不再用音量阈值 —— 戴耳机打字、手指碰到手机、环境杂音的音量都可能很大,
+     * 但只要没识别出文字就绝不打断 AI 说话.
      */
     private fun startInterruptDetection() {
         interruptDetectJob?.cancel()
         interruptDetectJob = serviceScope.launch {
-            var baselineTranscript = _uiState.value.userTranscript
+            val baselineTranscript = _uiState.value.userTranscript
             while (true) {
                 delay(150)
                 if (_uiState.value.status != VoiceCallStatus.Speaking) break
                 if (isMuted) continue // 静音期间不判断打断
 
                 val currentTranscript = _uiState.value.userTranscript
-                val amplitudes = _uiState.value.amplitudes
-                val recentAmplitude = amplitudes.takeLast(3).average().toFloat()
+                // 只统计"进入 Speaking 之后新增的文字".
+                // 正常情况 baseline 就是 current 的前缀; 万一转写被服务端改写导致前缀失配,
+                // 退回按最长公共前缀算, 避免把旧文字当成新文字误判成打断.
+                val addedText = if (currentTranscript.startsWith(baselineTranscript)) {
+                    currentTranscript.substring(baselineTranscript.length)
+                } else {
+                    currentTranscript.substring(
+                        longestCommonPrefixLength(baselineTranscript, currentTranscript)
+                    )
+                }
+                val newCharCount = addedText.count { it.isLetterOrDigit() }
 
-                // 转写文本相较于进入 Speaking 时有新增内容, 或者音量突然超过阈值,
-                // 都视为"用户开始说话了"
-                val hasNewTranscript = currentTranscript.length > baselineTranscript.length + 1
-                val hasLoudVoice = recentAmplitude > 0.15f
-
-                if (hasNewTranscript || hasLoudVoice) {
+                if (newCharCount >= INTERRUPT_MIN_NEW_CHARS) {
                     Log.d(
                         TAG,
-                        "检测到用户打断: transcript=$currentTranscript, amplitude=$recentAmplitude"
+                        "检测到用户打断: 新增有效文字 ${newCharCount} 个 (transcript=$currentTranscript)"
                     )
                     interruptSpeaking()
                     break
                 }
             }
         }
+    }
+
+    /**
+     * 两个字符串的最长公共前缀长度 (用于转写被改写时兜底计算新增部分)
+     */
+    private fun longestCommonPrefixLength(a: String, b: String): Int {
+        val max = minOf(a.length, b.length)
+        var index = 0
+        while (index < max && a[index] == b[index]) index++
+        return index
     }
 
     /**

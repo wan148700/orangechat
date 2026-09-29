@@ -14,10 +14,13 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -29,9 +32,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -46,11 +50,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -60,15 +65,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
+import me.rerere.ai.core.MessageRole
+import me.rerere.ai.ui.UIMessage
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.CallEnd01
 import me.rerere.hugeicons.stroke.Mic01
 import me.rerere.hugeicons.stroke.MicOff01
+import me.rerere.rikkahub.data.datastore.getAssistantById
+import me.rerere.rikkahub.data.datastore.getCurrentAssistant
+import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.service.VoiceCallService
 import me.rerere.rikkahub.ui.components.ui.permission.PermissionRecordAudio
 import me.rerere.rikkahub.ui.components.ui.permission.rememberPermissionState
+import me.rerere.rikkahub.ui.context.LocalSettings
+import kotlin.math.floor
+import kotlin.math.roundToInt
 import kotlin.uuid.Uuid
 
 private const val TAG = "VoiceCallPage"
@@ -82,10 +99,22 @@ private val ColorSubtitleAi = Color(0xFF4A423C)   // AI 回复 (深棕灰)
 private val ColorIcon = Color(0xFF4A423C)        // 麦克风细线图标
 private val ColorHangUp = Color(0xFFD9794F)      // 挂断图标 (偏深的浅橙)
 
-// 字幕行为参数
-private const val SubtitleFadeMs = 300            // 字幕淡入 / 淡出时长
-private const val SubtitleMaxSentences = 3        // 字幕最多同时显示最近几句
-private val SubtitleTopFadeHeight = 56.dp         // 字幕顶部渐隐高度
+// 字幕行为参数 (想调层次 / 间距 / 动效都在这里改)
+private const val SubtitleFadeMs = 300             // 层次过渡 / 新句入场时长
+private const val SubtitleMaxBlocks = 5            // 最多显示几句 (当前句 + 往上 4 句)
+private const val SubtitleLiveUserId = "subtitle_live_user" // 用户"正在说"那句的稳定 key
+private const val SubtitleCurrentFontSp = 20f      // 当前句字号
+private const val SubtitleHistoryFontSp = 17f      // 历史句字号
+private const val SubtitleCurrentWeight = 500      // 当前句字重 (Medium)
+private const val SubtitleHistoryWeight = 400      // 历史句字重 (Normal)
+private const val SubtitleNameFontSp = 12f         // 说话人名行字号
+private const val SubtitleResumeAutoScrollMs = 4000L // 用户松手后多久恢复自动滚动
+// 透明度: 当前句 -> 往上第 4 句
+private val SubtitleAlphas = listOf(1f, 0.6f, 0.45f, 0.32f, 0.22f)
+private val SubtitleBlockSpacing = 16.dp           // 块与块的垂直间距
+private val SubtitleHorizontalPadding = 32.dp      // 字幕左右内边距
+private val SubtitleEnterOffset = 8.dp             // 新句子入场时从下方上移的距离
+private val SubtitleTopFadeHeight = 56.dp          // 字幕顶部渐隐高度
 
 /**
  * 语音通话页面 (ChatGPT 独立语音模式风格)
@@ -191,6 +220,96 @@ fun VoiceCallPage(
         }
     }
 
+    // ---------- 字幕数据 ----------
+    // 历史句直接取当前对话里的消息 (不另建历史存储), 并且只保留"本次通话开始之后"的用户 / AI 消息
+    val settings = LocalSettings.current
+    // 注意: boundService 有可能在 conversationId 还没初始化时就被拿到 (onBind 早于 onStartCommand),
+    // 所以这里等 activeConversationId 就绪后再取 conversation, 避免 lateinit 未初始化崩溃
+    val activeCallId by VoiceCallService.activeConversationId.collectAsStateWithLifecycle()
+    val conversationFlow: Flow<Conversation?> = remember(boundService, activeCallId) {
+        val service = boundService
+        if (service == null || activeCallId == null) {
+            MutableStateFlow<Conversation?>(null)
+        } else {
+            runCatching { service.conversation }.getOrNull() ?: MutableStateFlow<Conversation?>(null)
+        }
+    }
+    val conversation by conversationFlow.collectAsStateWithLifecycle(initialValue = null)
+
+    val zone = remember { TimeZone.currentSystemDefault() }
+    val callStartedAt = uiState.callStartedAt
+    val historyLines = remember(conversation, callStartedAt) {
+        if (callStartedAt <= 0L) {
+            emptyList()
+        } else {
+            conversation?.currentMessages.orEmpty()
+                .filter { it.createdAt.toInstant(zone).toEpochMilliseconds() >= callStartedAt }
+                .mapNotNull { it.toSubtitleLine() }
+        }
+    }
+
+    // AI 流式生成时, 对话里的文本可能比 uiState.assistantText 更新得慢一点;
+    // 只要后者是前者的"更长版本", 就用它替换最后一条, 字幕跟得更顺
+    val streamingAssistantText = uiState.assistantText
+    val linesWithStreaming = remember(historyLines, streamingAssistantText) {
+        val last = historyLines.lastOrNull()
+        if (last != null &&
+            last.speaker == SubtitleSpeaker.Assistant &&
+            streamingAssistantText.length > last.text.length &&
+            streamingAssistantText.startsWith(last.text)
+        ) {
+            historyLines.dropLast(1) + last.copy(text = streamingAssistantText)
+        } else {
+            historyLines
+        }
+    }
+
+    // 用户正在说、还没发出去的那句就是最新一句 (优先级最高)
+    val liveUserText = uiState.userPendingTranscript
+    val allLines = remember(linesWithStreaming, liveUserText) {
+        if (liveUserText.isBlank()) {
+            linesWithStreaming
+        } else {
+            linesWithStreaming + SubtitleLine(
+                id = SubtitleLiveUserId,
+                speaker = SubtitleSpeaker.User,
+                text = liveUserText
+            )
+        }
+    }
+
+    // 只保留最近几句, 同时算好层次 (0 = 当前句) 和"这一句要不要显示说话人名"
+    val userName = settings.displaySetting.userNickname.trim()
+    val assistantName = (
+        settings.getAssistantById(conversation?.assistantId ?: settings.assistantId)?.name
+            ?: settings.getCurrentAssistant().name
+        ).trim()
+    val subtitleItems = remember(allLines, userName, assistantName) {
+        val visible = allLines.takeLast(SubtitleMaxBlocks)
+        val firstVisibleIndex = allLines.size - visible.size
+        visible
+            .mapIndexed { index, line ->
+                val previousSpeaker = allLines.getOrNull(firstVisibleIndex + index - 1)?.speaker
+                SubtitleBlockItem(
+                    id = line.id,
+                    speaker = line.speaker,
+                    // 只在说话人切换的那一句上方显示名字; 名字取不到就整行不显示
+                    speakerName = if (previousSpeaker != line.speaker) {
+                        when (line.speaker) {
+                            SubtitleSpeaker.User -> userName.ifBlank { null }
+                            SubtitleSpeaker.Assistant -> assistantName.ifBlank { null }
+                        }
+                    } else {
+                        null
+                    },
+                    text = line.text,
+                    level = visible.lastIndex - index
+                )
+            }
+            // LazyColumn 用了 reverseLayout, 所以这里传"最新 -> 最旧"
+            .reversed()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -233,14 +352,9 @@ fun VoiceCallPage(
             }
 
             // 字幕区: 占满"状态文字下方 → 按钮上方"的全部空间
-            // - 用户说话时显示"还没发出去"的那部分文字, 发出去以后淡出
-            // - AI 开始回复时, AI 的文字淡入
+            // 用户和 AI 的话按时间顺序排成一列 (最新的在最下面), 像歌词一样越旧越浅
             SubtitleArea(
-                userText = uiState.userPendingTranscript,
-                assistantText = uiState.assistantText,
-                showAssistant = uiState.status == VoiceCallStatus.Processing ||
-                    uiState.status == VoiceCallStatus.Speaking ||
-                    uiState.status == VoiceCallStatus.Idle,
+                items = subtitleItems,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -293,42 +407,40 @@ fun VoiceCallPage(
 }
 
 /**
- * 字幕区
+ * 字幕区: 像歌词一样的对话流
  *
- * - 只显示两块内容: 用户"还没发出去"的那句话 / AI 的回复, 两者切换时互相淡入淡出
- * - 用户那句话发出去以后会先淡出再消失, 所以这里记住最后一个非空文本
- * - 最多显示最近 [SubtitleMaxSentences] 句, 越旧的句子越浅; 顶部用背景色渐变做渐隐,
- *   文字往上滚出可视区时是慢慢淡掉, 不是硬切
+ * - 用户和 AI 的话按时间顺序排成一列, 最新的在最下面 (reverseLayout 天然贴底)
+ * - 每条消息一个稳定的 key (消息 id), 所以 AI 流式变长时不会重播入场动画
+ * - 层次 (距离最新一句有几句) 决定字号 / 透明度 / 字重, 变化用 300ms 过渡, 不跳变
+ * - 新句子: 淡入 + 从下方上移 8dp; 已经在屏幕上的句子只做整体上移
+ * - 用户手动滑动时暂停自动滚动, 松手几秒后恢复
  */
 @Composable
 private fun SubtitleArea(
-    userText: String,
-    assistantText: String,
-    showAssistant: Boolean,
+    items: List<SubtitleBlockItem>,
     modifier: Modifier = Modifier,
 ) {
-    // 记住最后一个非空内容, 让"刚发出去 / 刚开始新回答"时旧内容还能淡出, 而不是瞬间消失
-    var lastUserText by remember { mutableStateOf("") }
-    LaunchedEffect(userText) {
-        if (userText.isNotBlank()) lastUserText = userText
-    }
-    var lastAssistantText by remember { mutableStateOf("") }
-    LaunchedEffect(assistantText) {
-        if (assistantText.isNotBlank()) lastAssistantText = assistantText
+    val listState = rememberLazyListState()
+    var autoScroll by remember { mutableStateOf(true) }
+    var userTouching by remember { mutableStateOf(false) }
+
+    // 用户按住字幕区就暂停自动滚动, 松手几秒后恢复
+    LaunchedEffect(userTouching) {
+        if (userTouching) {
+            autoScroll = false
+        } else {
+            delay(SubtitleResumeAutoScrollMs)
+            autoScroll = true
+        }
     }
 
-    // 用户字幕: 正在说话 (还没切到 AI) 且确实有内容时才显示
-    val userAlpha by animateFloatAsState(
-        targetValue = if (!showAssistant && userText.isNotBlank()) 1f else 0f,
-        animationSpec = tween(SubtitleFadeMs),
-        label = "userSubtitleAlpha"
-    )
-    // AI 字幕: 有回复内容且轮到 AI 时显示
-    val assistantAlpha by animateFloatAsState(
-        targetValue = if (showAssistant && assistantText.isNotBlank()) 1f else 0f,
-        animationSpec = tween(SubtitleFadeMs),
-        label = "assistantSubtitleAlpha"
-    )
+    // 有新句子进来时滚到最新 (reverseLayout: 最新的在 index 0)
+    val newestId = items.firstOrNull()?.id
+    LaunchedEffect(newestId) {
+        if (autoScroll && items.isNotEmpty()) {
+            listState.animateScrollToItem(0)
+        }
+    }
 
     BoxWithConstraints(
         modifier = modifier,
@@ -336,19 +448,35 @@ private fun SubtitleArea(
     ) {
         // 顶部渐隐最多只占字幕区的 1/3, 避免屏幕矮的时候遮罩把字幕整个吃掉
         val topFadeHeight = minOf(SubtitleTopFadeHeight, maxHeight / 3)
-        if (userAlpha > 0.01f && lastUserText.isNotBlank()) {
-            SubtitleLines(
-                text = lastUserText,
-                color = ColorSubtitleUser,
-                modifier = Modifier.alpha(userAlpha)
-            )
-        }
-        if (assistantAlpha > 0.01f && lastAssistantText.isNotBlank()) {
-            SubtitleLines(
-                text = lastAssistantText,
-                color = ColorSubtitleAi,
-                modifier = Modifier.alpha(assistantAlpha)
-            )
+
+        LazyColumn(
+            state = listState,
+            // 反转布局: index 0 贴在最下面, 所以传进来的顺序是"最新 -> 最旧"
+            reverseLayout = true,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(SubtitleBlockSpacing, Alignment.Bottom),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = SubtitleHorizontalPadding)
+                .pointerInput(Unit) {
+                    // 只观察手指按下 / 抬起, 不消费事件, 所以不影响正常滚动
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        userTouching = true
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.changes.none { it.pressed }) break
+                        }
+                        userTouching = false
+                    }
+                }
+        ) {
+            items(items = items, key = { it.id }) { item ->
+                SubtitleBlock(
+                    item = item,
+                    modifier = Modifier.animateItem()
+                )
+            }
         }
 
         // 顶部渐隐: 用背景色把最上面一段"吃掉", 文字往上滚时慢慢消失
@@ -367,70 +495,113 @@ private fun SubtitleArea(
 }
 
 /**
- * 多行字幕: 最多保留最近几句 (越旧越浅), 超出高度可滚动, 自动滚到最新
+ * 一条字幕块: [说话人名 (可选行)] + [正文]
  */
 @Composable
-private fun SubtitleLines(
-    text: String,
-    color: Color,
+private fun SubtitleBlock(
+    item: SubtitleBlockItem,
     modifier: Modifier = Modifier,
 ) {
-    val visibleSentences = splitSubtitleSentences(text).takeLast(SubtitleMaxSentences)
-    val scrollState = rememberScrollState()
+    // 层次动画: 从"当前句"变成历史句时, 字号 / 透明度 / 字重一起平滑过渡
+    val animatedLevel by animateFloatAsState(
+        targetValue = item.level.toFloat(),
+        animationSpec = tween(SubtitleFadeMs),
+        label = "subtitleLevel"
+    )
+    // 入场动画: 淡入 + 从下方上移; 每个块只在自己第一次出现时播一次
+    val enter = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        enter.animateTo(1f, animationSpec = tween(SubtitleFadeMs))
+    }
 
-    // 文本增长时滚到最底部, 让最新内容始终可见
-    LaunchedEffect(visibleSentences) {
-        if (visibleSentences.isNotEmpty()) {
-            scrollState.animateScrollTo(scrollState.maxValue)
-        }
+    val fontSp = subtitleFontSpFor(animatedLevel)
+    val blockAlpha = subtitleAlphaFor(animatedLevel) * enter.value
+    val textColor = when (item.speaker) {
+        SubtitleSpeaker.User -> ColorSubtitleUser
+        SubtitleSpeaker.Assistant -> ColorSubtitleAi
     }
 
     Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
         modifier = modifier
             .fillMaxWidth()
-            .verticalScroll(scrollState)
-            .padding(horizontal = 36.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        visibleSentences.forEachIndexed { index, sentence ->
-            // 距离最新一句越远, 颜色越浅
-            val fromLatest = visibleSentences.lastIndex - index
-            val sentenceAlpha = when (fromLatest) {
-                0 -> 1f
-                1 -> 0.62f
-                else -> 0.38f
+            .graphicsLayer {
+                alpha = blockAlpha
+                // enter: 0 -> 1 时从下方 8dp 滑到最终位置
+                translationY = (1f - enter.value) * SubtitleEnterOffset.toPx()
             }
+    ) {
+        item.speakerName?.let { name ->
             Text(
-                text = sentence,
-                color = color.copy(alpha = sentenceAlpha),
-                fontSize = 16.sp,
-                lineHeight = 24.sp,
-                fontWeight = FontWeight.Normal,
+                text = name,
+                color = ColorStatusText,
+                fontSize = SubtitleNameFontSp.sp,
                 textAlign = TextAlign.Center
             )
         }
+        Text(
+            text = item.text,
+            color = textColor,
+            fontSize = fontSp.sp,
+            lineHeight = (fontSp * 1.4f).sp,
+            fontWeight = FontWeight(subtitleWeightFor(animatedLevel)),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
-/**
- * 按句末标点把文本拆成句子 (最后没结束的尾巴也算一句),
- * 这样"越旧的句子越浅"才能逐句生效
- */
-private fun splitSubtitleSentences(text: String): List<String> {
-    val endings = charArrayOf('。', '？', '！', '.', '?', '!', '\n')
-    val sentences = mutableListOf<String>()
-    val current = StringBuilder()
-    for (char in text) {
-        current.append(char)
-        if (char in endings) {
-            val sentence = current.toString().trim()
-            if (sentence.isNotEmpty()) sentences.add(sentence)
-            current.clear()
-        }
+/** 说话人 */
+private enum class SubtitleSpeaker { User, Assistant }
+
+/** 一句字幕: 一条用户消息 / 一条 AI 回复 / 用户"正在说"的那句话 */
+private data class SubtitleLine(
+    val id: String,
+    val speaker: SubtitleSpeaker,
+    val text: String,
+)
+
+/** 真正拿去渲染的字幕块 (层次和"要不要显示说话人名"都已经算好) */
+private data class SubtitleBlockItem(
+    val id: String,
+    val speaker: SubtitleSpeaker,
+    val speakerName: String?,
+    val text: String,
+    val level: Int, // 0 = 当前句 (最下面那句), 越大越旧
+)
+
+/** 一条消息 -> 一句字幕; 只取用户 / AI 的文本消息, 其它角色和空文本都跳过 */
+private fun UIMessage.toSubtitleLine(): SubtitleLine? {
+    val speaker = when (role) {
+        MessageRole.USER -> SubtitleSpeaker.User
+        MessageRole.ASSISTANT -> SubtitleSpeaker.Assistant
+        else -> return null
     }
-    val tail = current.toString().trim()
-    if (tail.isNotEmpty()) sentences.add(tail)
-    return sentences
+    val text = toText()
+    if (text.isBlank()) return null
+    return SubtitleLine(id = id.toString(), speaker = speaker, text = text)
+}
+
+/** 层次 -> 透明度 (在 [SubtitleAlphas] 之间线性插值, 所以过渡是平滑的) */
+private fun subtitleAlphaFor(level: Float): Float {
+    val clamped = level.coerceIn(0f, SubtitleAlphas.lastIndex.toFloat())
+    val lower = floor(clamped).toInt().coerceIn(0, SubtitleAlphas.lastIndex)
+    val upper = (lower + 1).coerceAtMost(SubtitleAlphas.lastIndex)
+    val fraction = clamped - lower
+    return SubtitleAlphas[lower] + (SubtitleAlphas[upper] - SubtitleAlphas[lower]) * fraction
+}
+
+/** 层次 -> 字号 (当前句 20sp, 历史句 17sp, 中间插值) */
+private fun subtitleFontSpFor(level: Float): Float {
+    val fraction = level.coerceIn(0f, 1f)
+    return SubtitleCurrentFontSp + (SubtitleHistoryFontSp - SubtitleCurrentFontSp) * fraction
+}
+
+/** 层次 -> 字重 (当前句 Medium, 历史句 Normal, 中间插值) */
+private fun subtitleWeightFor(level: Float): Int {
+    val fraction = level.coerceIn(0f, 1f)
+    return (SubtitleCurrentWeight + (SubtitleHistoryWeight - SubtitleCurrentWeight) * fraction).roundToInt()
 }
 
 /**

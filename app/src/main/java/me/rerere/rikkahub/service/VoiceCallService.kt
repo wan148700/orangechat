@@ -287,6 +287,8 @@ class VoiceCallService : Service(), KoinComponent {
                 status = VoiceCallStatus.Listening,
                 userTranscript = "",
                 userPendingTranscript = "",
+                // 字幕起点: 本次通话开始之后产生的消息才进字幕
+                callStartedAt = System.currentTimeMillis(),
                 errorMessage = null,
                 isMuted = false
             )

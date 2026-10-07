@@ -24,8 +24,22 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Env diagnostics
+        run: |
+          {
+            echo "=========== ENV ==========="
+            echo "JAVA_HOME=$JAVA_HOME"
+            java -version 2>&1 || true
+            echo "ANDROID_HOME=$ANDROID_HOME"
+            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+            echo "---- sdk root ----"
+            ls -la "$ANDROID_HOME" 2>&1 || true
+            echo "---- platforms ----"
+            ls "$ANDROID_HOME/platforms" 2>&1 || true
+            echo "---- build-tools ----"
+            ls "$ANDROID_HOME/build-tools" 2>&1 || true
+            echo "==========================="
+          } | tee ci-failure.log
 
       - name: Generate debug keystore
         run: |
@@ -35,7 +49,7 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -alias androiddebugkey \
             -storepass android -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US"
+            -dname "CN=Android Debug,O=Android,C=US" 2>&1 | tee -a ci-failure.log
 
       - name: Gradle cache
         uses: actions/cache@v4
@@ -47,8 +61,9 @@ jobs:
 
       - name: Build debug APK
         run: |
+          set -o pipefail
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee -a ci-failure.log
 
       - name: Upload APK artifact
         if: success()
@@ -65,5 +80,19 @@ jobs:
           TAG="liquidglass-build-$(date +%Y%m%d-%H%M%S)"
           gh release create "$TAG" \
             --title "Liquid Glass Debug ($TAG)" \
-            --notes "Auto-built debug APK from liquid-glass-ui branch." \
+            --notes "Auto-built debug APK from liquid-glass-ui." \
             app/build/outputs/apk/debug/*.apk
+
+      - name: Commit build log on failure
+        if: failure()
+        continue-on-error: true
+        run: |
+          if [ -f ci-failure.log ]; then
+            tail -c 100000 ci-failure.log > ci-failure.log.tmp
+            mv ci-failure.log.tmp ci-failure.log
+            git config user.name "ci-bot"
+            git config user.email "ci-bot@users.noreply.github.com"
+            git add -f ci-failure.log
+            git commit -m "ci: record build log [skip ci]" || true
+            git push origin HEAD:liquid-glass-ui || true
+          fi

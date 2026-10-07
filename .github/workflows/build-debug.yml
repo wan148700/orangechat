@@ -18,35 +18,43 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Init log
+        run: |
+          {
+            echo "===== CI START $(date) ====="
+            echo "pwd: $(pwd)"
+            echo "node: $(node -v 2>&1 || echo none)"
+            echo "npm: $(npm -v 2>&1 || echo none)"
+            echo "pnpm: $(pnpm -v 2>&1 || echo none)"
+          } | tee ci-failure.log
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
+      - name: Install pnpm
+        run: |
+          set -o pipefail
+          npm install -g pnpm@9 2>&1 | tee -a ci-failure.log
+          echo "pnpm now: $(pnpm -v 2>&1)" | tee -a ci-failure.log
 
       - name: Install web-ui dependencies
         working-directory: web-ui
-        run: pnpm install --no-frozen-lockfile
+        run: |
+          set -o pipefail
+          pnpm install --no-frozen-lockfile 2>&1 | tee -a ../ci-failure.log
 
       - name: Generate debug keystore
         run: |
+          set -o pipefail
           keytool -genkeypair -v \
             -keystore app/debug.keystore \
-            -storetype JKS \
-            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
             -alias androiddebugkey \
             -storepass android -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US"
+            -dname "CN=Android Debug,O=Android,C=US" 2>&1 | tee -a ci-failure.log
 
       - name: Gradle cache
         uses: actions/cache@v4
@@ -60,7 +68,7 @@ jobs:
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace 2>&1 | tee ci-failure.log
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee -a ci-failure.log
 
       - name: Upload APK artifact
         if: success()
@@ -85,7 +93,7 @@ jobs:
         continue-on-error: true
         run: |
           if [ -f ci-failure.log ]; then
-            tail -c 120000 ci-failure.log > ci-failure.log.tmp
+            tail -c 200000 ci-failure.log > ci-failure.log.tmp
             mv ci-failure.log.tmp ci-failure.log
             git config user.name "ci-bot"
             git config user.email "ci-bot@users.noreply.github.com"

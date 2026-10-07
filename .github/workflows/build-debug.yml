@@ -6,6 +6,9 @@ on:
       - liquid-glass-ui
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -47,9 +50,20 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK
+      - name: Upload APK artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: orangechat-liquidglass-debug
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Publish release with APK
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="liquidglass-build-$(date +%Y%m%d-%H%M%S)"
+          gh release create "$TAG" \
+            --title "Liquid Glass Debug ($TAG)" \
+            --notes "Auto-built debug APK from liquid-glass-ui branch." \
+            app/build/outputs/apk/debug/*.apk

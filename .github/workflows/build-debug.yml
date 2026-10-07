@@ -18,6 +18,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Init material3 submodule
+        run: |
+          set -o pipefail
+          git submodule update --init --depth 1 material3/material-color-utilities 2>&1 | tee ci-failure.log
+          ls material3/material-color-utilities/kotlin/dynamiccolor
+
       - name: Init log
         run: |
           {

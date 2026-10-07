@@ -24,22 +24,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Env diagnostics
-        run: |
-          {
-            echo "=========== ENV ==========="
-            echo "JAVA_HOME=$JAVA_HOME"
-            java -version 2>&1 || true
-            echo "ANDROID_HOME=$ANDROID_HOME"
-            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-            echo "---- sdk root ----"
-            ls -la "$ANDROID_HOME" 2>&1 || true
-            echo "---- platforms ----"
-            ls "$ANDROID_HOME/platforms" 2>&1 || true
-            echo "---- build-tools ----"
-            ls "$ANDROID_HOME/build-tools" 2>&1 || true
-            echo "==========================="
-          } | tee ci-failure.log
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install web-ui dependencies
+        working-directory: web-ui
+        run: pnpm install --no-frozen-lockfile
 
       - name: Generate debug keystore
         run: |
@@ -49,7 +46,7 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -alias androiddebugkey \
             -storepass android -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US" 2>&1 | tee -a ci-failure.log
+            -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Gradle cache
         uses: actions/cache@v4
@@ -63,7 +60,7 @@ jobs:
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace 2>&1 | tee -a ci-failure.log
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee ci-failure.log
 
       - name: Upload APK artifact
         if: success()
@@ -88,7 +85,7 @@ jobs:
         continue-on-error: true
         run: |
           if [ -f ci-failure.log ]; then
-            tail -c 100000 ci-failure.log > ci-failure.log.tmp
+            tail -c 120000 ci-failure.log > ci-failure.log.tmp
             mv ci-failure.log.tmp ci-failure.log
             git config user.name "ci-bot"
             git config user.email "ci-bot@users.noreply.github.com"

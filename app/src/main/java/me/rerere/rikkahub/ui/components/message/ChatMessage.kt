@@ -131,6 +131,7 @@ fun ChatMessage(
     model: Model? = null,
     assistant: Assistant? = null,
     lastMessage: Boolean = false,
+    showMessageActions: Boolean = true,
     onFork: () -> Unit,
     onRegenerate: () -> Unit,
     onEdit: () -> Unit,
@@ -217,7 +218,7 @@ fun ChatMessage(
             }
         }
  
-        val showActions = if (lastMessage) {
+        val showActions = showMessageActions && if (lastMessage) {
             !loading
         } else {
             message.parts.isEmptyUIMessage().not()

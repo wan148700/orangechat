@@ -27,6 +27,21 @@ enum class VoiceCallStatus {
 data class VoiceCallUiState(
     val status: VoiceCallStatus = VoiceCallStatus.Idle,
     val userTranscript: String = "",
+    /**
+     * 字幕专用: 用户"还没发出去"的那部分文字。
+     *
+     * 增量型 ASR (Volcengine) 的 userTranscript 是整场通话累积的, 直接拿去当字幕会越堆越多,
+     * 所以 Service 会把"已经作为消息发送"的前缀去掉后写进这个字段;
+     * 其它 ASR (SiliconFlow) 的转写本身就是"这一句", 等于 userTranscript。
+     */
+    val userPendingTranscript: String = "",
+    /**
+     * 本次通话的开始时间 (毫秒时间戳)。
+     *
+     * 字幕用它把"本次通话之前"的历史消息过滤掉; 挂断重打时会重新计时,
+     * 所以字幕总是从空开始。只影响显示, 不参与任何发送 / 识别 / 打断判断。
+     */
+    val callStartedAt: Long = 0L,
     val assistantText: String = "",
     val errorMessage: String? = null,
     val amplitudes: List<Float> = emptyList(),

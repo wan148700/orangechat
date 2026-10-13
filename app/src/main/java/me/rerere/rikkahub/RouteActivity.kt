@@ -163,14 +163,15 @@ import me.rerere.rikkahub.ui.pages.setting.SecuritySettingPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProactiveMessagePage
 import me.rerere.rikkahub.ui.pages.setting.SettingWeixinBotPage
 import me.rerere.rikkahub.ui.pages.setting.SettingQqBotPage
+import me.rerere.rikkahub.ui.pages.setting.components.SettingsBackground
 import me.rerere.rikkahub.plugin.webview.PluginWebViewPage
 import me.rerere.rikkahub.ui.pages.memory.MemoryBankPage
 import me.rerere.rikkahub.ui.components.ui.EmojiPickerPage
 import me.rerere.rikkahub.ui.pages.share.handler.ShareHandlerPage
 import me.rerere.rikkahub.ui.pages.stats.StatsPage
 import me.rerere.rikkahub.ui.pages.translator.TranslatorPage
- import me.rerere.rikkahub.ui.pages.voice.IncomingCallPage
- import me.rerere.rikkahub.ui.pages.voice.VoiceCallPage
+import me.rerere.rikkahub.ui.pages.voice.IncomingCallPage
+import me.rerere.rikkahub.ui.pages.voice.VoiceCallPage
 import me.rerere.rikkahub.service.VoiceCallService
 import me.rerere.rikkahub.ui.pages.webview.WebViewPage
 import me.rerere.rikkahub.ui.theme.LocalDarkMode
@@ -433,30 +434,31 @@ class RouteActivity : ComponentActivity() {
                             }
                         }
                 ) {
-                    NavDisplay(
-                        backStack = backStack,
-                        entryDecorators = listOf(
-                            rememberSaveableStateHolderNavEntryDecorator(),
-                            rememberViewModelStoreNavEntryDecorator(),
-                        ),
-                        modifier = Modifier.fillMaxSize(),
-                        onBack = { backStack.removeLastOrNull() },
-                        transitionSpec = {
-                            if (backStack.size == 1) fadeIn() togetherWith fadeOut()
-                            else {
-                                slideInHorizontally { it } togetherWith
-                                    slideOutHorizontally { -it / 2 } + scaleOut(targetScale = 0.7f) + fadeOut()
-                            }
-                        },
-                        popTransitionSpec = {
-                            slideInHorizontally { -it / 2 } + scaleIn(initialScale = 0.7f) + fadeIn() togetherWith
-                                slideOutHorizontally { it }
-                        },
-                        predictivePopTransitionSpec = {
-                            slideInHorizontally { -it / 2 } + scaleIn(initialScale = 0.7f) + fadeIn() togetherWith
-                                slideOutHorizontally { it }
-                        },
-                        entryProvider = entryProvider {
+                    SettingsBackground {
+                        NavDisplay(
+                            backStack = backStack,
+                            entryDecorators = listOf(
+                                rememberSaveableStateHolderNavEntryDecorator(),
+                                rememberViewModelStoreNavEntryDecorator(),
+                            ),
+                            modifier = Modifier.fillMaxSize(),
+                            onBack = { backStack.removeLastOrNull() },
+                            transitionSpec = {
+                                if (backStack.size == 1) fadeIn() togetherWith fadeOut()
+                                else {
+                                    slideInHorizontally { it } togetherWith
+                                        slideOutHorizontally { -it / 2 } + scaleOut(targetScale = 0.7f) + fadeOut()
+                                }
+                            },
+                            popTransitionSpec = {
+                                slideInHorizontally { -it / 2 } + scaleIn(initialScale = 0.7f) + fadeIn() togetherWith
+                                    slideOutHorizontally { it }
+                            },
+                            predictivePopTransitionSpec = {
+                                slideInHorizontally { -it / 2 } + scaleIn(initialScale = 0.7f) + fadeIn() togetherWith
+                                    slideOutHorizontally { it }
+                            },
+                            entryProvider = entryProvider {
                             entry<Screen.Chat>(
                                 metadata = NavDisplay.transitionSpec { fadeIn() togetherWith fadeOut() }
                                         + NavDisplay.popTransitionSpec { fadeIn() togetherWith fadeOut() }
@@ -628,15 +630,15 @@ class RouteActivity : ComponentActivity() {
                                 DebugPage()
                             }
 
-entry<Screen.Log> {
-    LogPage()
-}
+                            entry<Screen.Log> {
+                                LogPage()
+                            }
 
-entry<Screen.SecurityAudit> {
-    SecurityAuditPage()
-}
+                            entry<Screen.SecurityAudit> {
+                                SecurityAuditPage()
+                            }
 
-entry<Screen.Extensions> {
+                            entry<Screen.Extensions> {
                                 ExtensionsPage()
                             }
 
@@ -862,36 +864,37 @@ entry<Screen.Extensions> {
                                 )
                             }
 
-                        }
-                    )
-                    AnimatedVisibility(
-                        visible = migrationState is MigrationState.Migrating,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        val state = migrationState as? MigrationState.Migrating
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
-                            contentAlignment = Alignment.Center
+                            }
+                        )
+                        AnimatedVisibility(
+                            visible = migrationState is MigrationState.Migrating,
+                            enter = fadeIn(),
+                            exit = fadeOut(),
+                            modifier = Modifier.fillMaxSize()
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            val state = migrationState as? MigrationState.Migrating
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
+                                contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator()
-                                Text(
-                                    text = stringResource(R.string.db_migrating),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                                if (state != null) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    CircularProgressIndicator()
                                     Text(
-                                        text = "v${state.from} → v${state.to}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        text = stringResource(R.string.db_migrating),
+                                        style = MaterialTheme.typography.bodyLarge
                                     )
+                                    if (state != null) {
+                                        Text(
+                                            text = "v${state.from} → v${state.to}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import kotlinx.serialization.Serializable
+import me.rerere.rikkahub.data.datastore.DisplayMaterialMode
 import me.rerere.rikkahub.ui.components.ui.toComposeColor
 import me.rerere.rikkahub.ui.hooks.rememberAmoledDarkMode
 import me.rerere.rikkahub.ui.hooks.rememberColorMode
@@ -37,6 +38,16 @@ private val ExtendDarkColors = darkExtendColors()
 val LocalExtendColors = compositionLocalOf { ExtendLightColors }
 
 val LocalDarkMode = compositionLocalOf { false }
+val LocalMaterialMode = compositionLocalOf { DisplayMaterialMode.FLAT }
+val LocalPopupSurfaceOpacity = compositionLocalOf { 90f }
+
+@Composable
+@ReadOnlyComposable
+fun popupContainerColor(baseContainerColor: Color): Color {
+    val popupAlpha =
+        (LocalPopupSurfaceOpacity.current / 100f).coerceIn(0.6f, 1f)
+    return baseContainerColor.copy(alpha = popupAlpha)
+}
 
 private val AMOLED_DARK_BACKGROUND = Color(0xFF000000)
 
@@ -89,6 +100,7 @@ fun RikkahubTheme(
         colorSchemeConverted,
         settings.displaySetting.primaryColor,
         settings.displaySetting.globalTextColor,
+        settings.displaySetting.interfaceSurfaceOpacity,
         settings.themeId,
     ) {
         var scheme = colorSchemeConverted
@@ -109,28 +121,33 @@ fun RikkahubTheme(
                 onSurfaceVariant = textColor,
             )
         }
+        val interfaceSurfaceAlpha =
+            (settings.displaySetting.interfaceSurfaceOpacity / 100f).coerceIn(0f, 0.95f)
+        // 直接覆盖容器 token 的 alpha，保留 RGB，避免与主题或组件已有 alpha 相乘。
+        // background 保持不透明，使聊天页外层 Surface 能完整隔离导航根部的设置背景。
+        scheme = scheme.copy(
+            surface = scheme.surface.copy(alpha = interfaceSurfaceAlpha),
+            surfaceBright = scheme.surfaceBright.copy(alpha = interfaceSurfaceAlpha),
+            surfaceDim = scheme.surfaceDim.copy(alpha = interfaceSurfaceAlpha),
+            surfaceContainerLowest = scheme.surfaceContainerLowest.copy(alpha = interfaceSurfaceAlpha),
+            surfaceContainerLow = scheme.surfaceContainerLow.copy(alpha = interfaceSurfaceAlpha),
+            surfaceContainer = scheme.surfaceContainer.copy(alpha = interfaceSurfaceAlpha),
+            surfaceContainerHigh = scheme.surfaceContainerHigh.copy(alpha = interfaceSurfaceAlpha),
+            surfaceContainerHighest = scheme.surfaceContainerHighest.copy(alpha = interfaceSurfaceAlpha),
+            surfaceVariant = scheme.surfaceVariant.copy(alpha = interfaceSurfaceAlpha),
+        )
         if (settings.themeId == "pearltide") {
-            // 珍珠潮汐主题专属:统一让默认读取这几个 token 的容器变透明/半透明,
-            // 这样 Scaffold、Card、TopAppBar、ModalDrawerSheet、ModalBottomSheet 等
-            // 全部自动生效,不需要逐个页面单独改。
-            // 这个 if 分支只在 themeId 精确等于 "pearltide" 时才会执行,
-            // 其余六个官方预设(id 分别是 ocean/sakura/spring/autumn/black/claude)
-            // 以及用户自定义主题(id 是随机 UUID,不会等于这个字符串)完全不受影响。
-            val glassAlpha = 0.6f
-            scheme = scheme.copy(
-                background = scheme.background.copy(alpha = 0f),
-                surface = scheme.surface.copy(alpha = glassAlpha),
-                surfaceBright = scheme.surfaceBright.copy(alpha = glassAlpha),
-                surfaceDim = scheme.surfaceDim.copy(alpha = glassAlpha),
-                surfaceContainerLowest = scheme.surfaceContainerLowest.copy(alpha = glassAlpha),
-                surfaceContainerLow = scheme.surfaceContainerLow.copy(alpha = glassAlpha),
-                surfaceContainer = scheme.surfaceContainer.copy(alpha = glassAlpha),
-                surfaceContainerHigh = scheme.surfaceContainerHigh.copy(alpha = glassAlpha),
-                surfaceContainerHighest = scheme.surfaceContainerHighest.copy(alpha = glassAlpha),
-                surfaceVariant = scheme.surfaceVariant.copy(alpha = glassAlpha),
-            )
+            // Pearl Tide 原有根背景由 RouteActivity 绘制，继续允许该背景透出。
+            scheme = scheme.copy(background = scheme.background.copy(alpha = 0f))
         }
         scheme
+    }
+
+    val resolvedMaterialMode = when (settings.displaySetting.materialMode) {
+        DisplayMaterialMode.FOLLOW_THEME -> {
+            if (settings.themeId == "liquid_glass") DisplayMaterialMode.GLASS else DisplayMaterialMode.FLAT
+        }
+        else -> settings.displaySetting.materialMode
     }
 
     // 更新状态栏图标颜色
@@ -147,6 +164,8 @@ fun RikkahubTheme(
 
     CompositionLocalProvider(
         LocalDarkMode provides darkTheme,
+        LocalMaterialMode provides resolvedMaterialMode,
+        LocalPopupSurfaceOpacity provides settings.displaySetting.popupSurfaceOpacity,
         LocalExtendColors provides extendColors,
         LocalOverscrollFactory provides null
     ) {

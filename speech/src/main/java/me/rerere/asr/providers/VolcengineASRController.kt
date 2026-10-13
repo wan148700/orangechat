@@ -71,6 +71,12 @@ class VolcengineASRController(
     private var onTranscriptChange: ((String) -> Unit)? = null
     private var lastText = ""
 
+    // 本场会话里服务端"已判停确定"的句子 (append-only) 和当前还没确定的尾巴。
+    // result_type=full 时每个响应都带整场会话的累积结果, 所以每次都整体覆盖重建。
+    private var finalizedSentences: List<String> = emptyList()
+    private var pendingTail = ""
+    private var lastFinalizedText = ""
+
     // 用户主动 stop() 时置 true, 用来区分"用户挂断"和"网络断开需要重连"
     @Volatile
     private var isStopping = false
@@ -98,6 +104,11 @@ class VolcengineASRController(
     }
 
     private fun connect() {
+        // 新连接 = 服务端新会话: 累积文本必须清零, 否则会把上一场通话/上一次连接的文字当成新内容
+        finalizedSentences = emptyList()
+        pendingTail = ""
+        lastText = ""
+        lastFinalizedText = ""
         _state.update {
             ASRState(
                 status = ASRStatus.Connecting,
@@ -274,13 +285,53 @@ class VolcengineASRController(
                     return
                 }
 
-                val rawText = json.optJSONObject("result")?.optString("text", "") ?: ""
-                val text = rawText.stripTrailingEmoji()
-                if (text.isNotEmpty() && text != lastText) {
-                    lastText = text
-                    _state.update { it.copy(transcript = text, errorMessage = null) }
-                    scope.launch { onTranscriptChange?.invoke(text) }
+                val result = json.optJSONObject("result")
+
+                // 解析 utterances: 服务端用 definite 标记"这句已经判停, 不会再改"。
+                // result_type=full 时每个响应都带整场会话的累积 utterances, 所以这里整体覆盖重建:
+                // definite 的句子 = 已确定文本 (只增不改), 非 definite 的 = 当前还没确定的尾巴。
+                val utterances = result?.optJSONArray("utterances")
+                if (utterances != null && utterances.length() > 0) {
+                    val definite = ArrayList<String>(utterances.length())
+                    val pending = StringBuilder()
+                    for (i in 0 until utterances.length()) {
+                        val utterance = utterances.optJSONObject(i) ?: continue
+                        val utteranceText = utterance.optString("text", "")
+                        if (utteranceText.isBlank()) continue
+                        if (utterance.optBoolean("definite", false)) {
+                            definite.add(utteranceText)
+                        } else {
+                            pending.append(utteranceText)
+                        }
+                    }
+                    finalizedSentences = definite
+                    pendingTail = pending.toString()
                 }
+
+                val finalizedText = finalizedSentences.joinToString("")
+                val rawText = if (finalizedText.isNotEmpty() || pendingTail.isNotEmpty()) {
+                    finalizedText + pendingTail
+                } else {
+                    // 兜底: 响应里没有 utterances 时 (比如服务端不支持), 退回整段 result.text
+                    result?.optString("text", "") ?: ""
+                }
+                val text = rawText.stripTrailingEmoji()
+                if (text.isEmpty() && finalizedText.isEmpty() && pendingTail.isEmpty()) return
+                if (text == lastText && finalizedText == lastFinalizedText) return
+                lastText = text
+                lastFinalizedText = finalizedText
+                _state.update {
+                    it.copy(
+                        transcript = text,
+                        // 这两个字段故意不做 stripTrailingEmoji:
+                        // 必须严格保持"最终文本 = finalizedText + pendingText"的前缀关系,
+                        // 上层才能用前缀长度切出"新增的已确定部分"
+                        finalizedText = finalizedText,
+                        pendingText = pendingTail,
+                        errorMessage = null
+                    )
+                }
+                scope.launch { onTranscriptChange?.invoke(text) }
             }
 
             0x0F -> {

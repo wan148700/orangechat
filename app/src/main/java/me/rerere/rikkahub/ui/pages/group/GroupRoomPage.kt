@@ -27,7 +27,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import me.rerere.rikkahub.ui.theme.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextField
@@ -43,12 +43,20 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
+import android.os.Build
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -76,6 +84,13 @@ import me.rerere.ai.ui.UIMessagePart
 import me.rerere.rikkahub.ui.components.message.ChatMessage
 import me.rerere.rikkahub.ui.components.ui.toComposeColor
 import me.rerere.rikkahub.ui.pages.chat.AssistantBackground
+import me.rerere.rikkahub.ui.pages.chat.rememberChatBackgroundVisuals
+import me.rerere.rikkahub.ui.pages.chat.decodeChatBackgroundBitmap
+import me.rerere.rikkahub.ui.components.message.LocalLiveBubbleBlur
+import me.rerere.rikkahub.ui.components.message.LiveBubbleBlurContext
+import me.rerere.rikkahub.ui.theme.LocalMaterialMode
+import me.rerere.rikkahub.data.datastore.DisplayMaterialMode
+import me.rerere.rikkahub.data.datastore.getCurrentAssistant
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.ArrowUp02
 import me.rerere.hugeicons.stroke.Cancel01
@@ -156,6 +171,18 @@ fun GroupRoomPage(
     var error by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val hazeState = rememberHazeState()
+    val backgroundModel = settings.getCurrentAssistant().background
+    val backgroundVisuals = rememberChatBackgroundVisuals(settings)
+    var backgroundBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var backgroundOrigin by remember { mutableStateOf(Offset.Unspecified) }
+    var backgroundSize by remember { mutableStateOf(Size.Unspecified) }
+    val density = LocalDensity.current
+    val liveBlur = settings.displaySetting.interfaceRealtimeRendering &&
+        settings.displaySetting.chatBubbleRealtimeBlur && LocalMaterialMode.current == DisplayMaterialMode.GLASS &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    LaunchedEffect(backgroundModel) {
+        backgroundBitmap = backgroundModel?.let { runCatching { decodeChatBackgroundBitmap(context, it) }.getOrNull() }
+    }
 
     fun save(room: GroupRoom) {
         val index = rooms.indexOfFirst { it.id == room.id }
@@ -279,7 +306,17 @@ fun GroupRoomPage(
     LaunchedEffect(selectedId, selected?.lines?.size) {
         if (!selected?.lines.isNullOrEmpty()) listState.animateScrollToItem(selected!!.lines.lastIndex)
     }
-    Box(Modifier.fillMaxSize()) {
+    CompositionLocalProvider(LocalLiveBubbleBlur provides LiveBubbleBlurContext(
+        imageBitmap = if (liveBlur) backgroundBitmap else null,
+        backgroundOriginInWindow = backgroundOrigin, backgroundSizePx = backgroundSize,
+        baseColor = backgroundVisuals.baseColor, imageAlpha = backgroundVisuals.imageAlpha,
+        gradientTopAlpha = backgroundVisuals.gradientTopAlpha, gradientBottomAlpha = backgroundVisuals.gradientBottomAlpha,
+        enabled = liveBlur, radiusPx = with(density) { 5.dp.toPx() },
+    )) {
+    Box(Modifier.fillMaxSize().onGloballyPositioned {
+        backgroundOrigin = it.positionInWindow()
+        backgroundSize = Size(it.size.width.toFloat(), it.size.height.toFloat())
+    }) {
     AssistantBackground(setting = settings)
     Scaffold(containerColor = Color.Transparent, topBar = { TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
@@ -406,6 +443,7 @@ fun GroupRoomPage(
                 }
             }
         }
+    }
     }
     }
 

@@ -123,9 +123,13 @@ fun GroupRoomPage(
     val prefs = remember { context.getSharedPreferences("task_group_rooms", Context.MODE_PRIVATE) }
     val rooms = remember {
         mutableStateListOf<GroupRoom>().apply {
-            addAll(runCatching {
+            runCatching {
                 roomJson.decodeFromString<List<GroupRoom>>(prefs.getString("rooms", "[]") ?: "[]")
-            }.getOrDefault(emptyList()))
+            }.onSuccess { loaded ->
+                addAll(loaded)
+                // 把旧记录补出的稳定 ID 写回一次，之后重启再同步不会产生重复消息。
+                prefs.edit().putString("rooms", roomJson.encodeToString(loaded)).apply()
+            }
         }
     }
     val settings by settingsStore.settingsFlow.collectAsStateWithLifecycle()

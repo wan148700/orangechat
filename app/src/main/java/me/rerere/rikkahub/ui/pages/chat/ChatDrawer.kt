@@ -271,6 +271,20 @@ fun ChatDrawerContent(
                 }
             }
 
+            Surface(
+                onClick = { navController.navigate(Screen.GroupRoom) },
+                modifier = Modifier.fillMaxWidth().alpha(settings.displaySetting.drawerItemAlpha),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
+            ) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(HugeIcons.Sparkles, contentDescription = null)
+                    Text("群聊", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
             DrawerActions(
                 navController = navController,
                 drawerItemAlpha = settings.displaySetting.drawerItemAlpha,
@@ -411,14 +425,6 @@ fun ChatDrawerContent(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("任务群聊") },
-                            leadingIcon = { Icon(HugeIcons.Sparkles, null) },
-                            onClick = {
-                                showMenuPopup = false
-                                navController.navigate(Screen.GroupRoom)
-                            }
-                        )
-                        DropdownMenuItem(
                             text = { Text("Mini Apps") },
                             leadingIcon = { Icon(HugeIcons.Rocket01, null) },
                             onClick = {
@@ -428,12 +434,6 @@ fun ChatDrawerContent(
                         )
                     }
                 }
-
-                DrawerAction(
-                    icon = { Icon(HugeIcons.Sparkles, "任务群聊") },
-                    label = { Text("群聊") },
-                    onClick = { navController.navigate(Screen.GroupRoom) },
-                )
 
                 DrawerAction(
                     icon = {

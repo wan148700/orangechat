@@ -1553,6 +1553,33 @@ addAll(localTools.getTools(assistant.localTools, me.rerere.rikkahub.data.ai.tool
         }
     }
 
+    /** Append identified group events without replacing existing chat or racing an active reply. */
+    suspend fun appendGroupMessages(
+        conversationId: Uuid,
+        assistantId: Uuid,
+        messages: List<UIMessage>,
+    ): Boolean {
+        val session = getOrCreateSession(conversationId)
+        return session.withRefSuspend {
+            session.saveMutex.withLock {
+                if (session.isGenerating) return@withLock false
+                val current = conversationRepo.getConversationById(conversationId)
+                    ?: error("关联的原会话不存在")
+                require(current.assistantId == assistantId) { "原会话不属于这个角色" }
+                if (session.isGenerating) return@withLock false
+                val existing = current.currentMessages.map { it.id }.toSet()
+                val additions = messages.filterNot { it.id in existing }.distinctBy { it.id }
+                if (additions.isNotEmpty()) {
+                    saveConversation(conversationId, current.copy(
+                        messageNodes = current.messageNodes + additions.map { it.toMessageNode() },
+                        updateAt = Instant.now(),
+                    ))
+                }
+                true
+            }
+        }
+    }
+
     // ---- 翻译消息 ----
 
     fun translateMessage(

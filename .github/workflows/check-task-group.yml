@@ -14,8 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - name: Fetch color utilities
+        run: git submodule update --init material3/material-color-utilities
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

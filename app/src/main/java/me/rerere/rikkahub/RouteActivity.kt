@@ -127,6 +127,7 @@ import me.rerere.rikkahub.ui.pages.extensions.workspace.WorkspacePage
 import me.rerere.rikkahub.ui.pages.extensions.workspace.WorkspaceTerminalPage
 import me.rerere.rikkahub.ui.pages.favorite.FavoritePage
 import me.rerere.rikkahub.ui.pages.health.HealthPage
+import me.rerere.rikkahub.ui.pages.group.GroupRoomPage
 import me.rerere.rikkahub.ui.pages.history.HistoryPage
 import me.rerere.rikkahub.ui.pages.imggen.ImageGenPage
 import me.rerere.rikkahub.ui.pages.log.LogPage
@@ -679,6 +680,10 @@ entry<Screen.Extensions> {
                                 HealthPage()
                             }
 
+                            entry<Screen.GroupRoom> {
+                                GroupRoomPage()
+                            }
+
                             entry<Screen.Stats> {
                                 StatsPage()
                             }
@@ -1080,6 +1085,9 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data object Health : Screen
+
+    @Serializable
+    data object GroupRoom : Screen
 
     @Serializable
     data object SettingPlugins : Screen

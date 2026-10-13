@@ -411,6 +411,14 @@ fun ChatDrawerContent(
                             }
                         )
                         DropdownMenuItem(
+                            text = { Text("任务群聊") },
+                            leadingIcon = { Icon(HugeIcons.Sparkles, null) },
+                            onClick = {
+                                showMenuPopup = false
+                                navController.navigate(Screen.GroupRoom)
+                            }
+                        )
+                        DropdownMenuItem(
                             text = { Text("Mini Apps") },
                             leadingIcon = { Icon(HugeIcons.Rocket01, null) },
                             onClick = {
@@ -420,6 +428,12 @@ fun ChatDrawerContent(
                         )
                     }
                 }
+
+                DrawerAction(
+                    icon = { Icon(HugeIcons.Sparkles, "任务群聊") },
+                    label = { Text("群聊") },
+                    onClick = { navController.navigate(Screen.GroupRoom) },
+                )
 
                 DrawerAction(
                     icon = {

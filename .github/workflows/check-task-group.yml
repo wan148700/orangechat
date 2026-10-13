@@ -37,6 +37,9 @@ jobs:
           else
             printf '{"project_info":{"project_number":"1","project_id":"local-build","storage_bucket":"local-build.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:1:android:1234567890abcdef","android_client_info":{"package_name":"me.rerere.rikkahub"}},"api_key":[{"current_key":"local-build-key"}]}],"configuration_version":"1"}' > app/google-services.json
           fi
+      - name: Generate isolated debug keystore
+        run: |
+          keytool -genkeypair -keystore app/debug.keystore -storepass android -keypass android -alias androiddebugkey -dname 'CN=Android Debug,O=Android,C=US' -keyalg RSA -keysize 2048 -validity 10000
       - name: Build debug APK
         run: |
           chmod +x gradlew

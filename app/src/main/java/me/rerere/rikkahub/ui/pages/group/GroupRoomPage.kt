@@ -266,6 +266,7 @@ fun GroupRoomPage(
             val speakerKeys = mentions.ifEmpty { participants.map { it.key } }
             val plan = if (memberConversation) memberConversationPlan(speakerKeys, if (userText?.contains("两句") == true) 1 else first.discussionRounds) else emptyList()
             var planIndex = 0
+            val memberContextStart = if (userText.isNullOrBlank()) first.lines.size else (first.lines.size - 1).coerceAtLeast(0)
             val queue = GroupTurnQueue(participants.map { it.key }, speakerKeys, waves)
             try {
                 syncRoom(current)
@@ -286,7 +287,7 @@ fun GroupRoomPage(
                     val originalHistory = if (memberConversation) emptyList() else groupOriginalHistory(original?.currentMessages.orEmpty(), historyLimit)
                     contextStatus = if (memberConversation) "成员互聊：使用群内上下文，不载入私人聊天历史" else if (original != null) "${member.label}：已读取 ${originalHistory.size} 条原窗口历史"
                         else "${member.label}：未关联原窗口，仅使用群聊上下文"
-                    val transcript = current.lines.takeLast(24).joinToString("\n") { "${it.sender}：${it.text}" }
+                    val transcript = (if (memberConversation) current.lines.drop(memberContextStart) else current.lines.takeLast(24)).joinToString("\n") { "${it.sender}：${it.text}" }
                     val rolePrompt = if (assistant?.allowConversationSystemPrompt == true) {
                         original?.customSystemPrompt ?: assistant.systemPrompt
                     } else assistant?.systemPrompt.orEmpty()

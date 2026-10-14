@@ -878,6 +878,7 @@ class ChatService(
                 outputTransformers = outputTransformers,
                 tools = buildList {
                     add(me.rerere.rikkahub.data.ai.tools.local.shizukuStatusTool(context))
+                    add(me.rerere.rikkahub.data.ai.tools.local.shizukuShellTool(context))
                     if (settings.enableWebSearch) {
                         addAll(createSearchTools(settings))
                     }

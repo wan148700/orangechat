@@ -5,7 +5,8 @@ on:
     paths:
       - 'app/src/main/aidl/**'
       - 'app/src/main/java/me/rerere/rikkahub/data/shizuku/**'
-      - 'app/src/main/java/me/rerere/rikkahub/data/ai/tools/local/ShizukuStatusTool.kt'
+      - 'app/src/main/java/me/rerere/rikkahub/data/ai/tools/local/Shizuku*.kt'
+      - 'app/src/test/java/me/rerere/rikkahub/data/shizuku/**'
       - 'app/src/main/java/me/rerere/rikkahub/ui/pages/setting/ShizukuConnectionCard.kt'
       - 'app/src/main/java/me/rerere/rikkahub/ui/pages/setting/SettingSystemToolsPage.kt'
       - 'app/src/main/java/me/rerere/rikkahub/service/ChatService.kt'
@@ -51,7 +52,7 @@ jobs:
       - name: Build debug APK
         run: |
           chmod +x gradlew
-          ./gradlew :app:testDebugUnitTest --tests me.rerere.rikkahub.ui.pages.group.GroupChatLogicTest assembleDebug --stacktrace
+          ./gradlew :app:testDebugUnitTest --tests me.rerere.rikkahub.ui.pages.group.GroupChatLogicTest --tests me.rerere.rikkahub.data.shizuku.ShellCommandRunnerTest assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
           name: orangechat-task-group-debug

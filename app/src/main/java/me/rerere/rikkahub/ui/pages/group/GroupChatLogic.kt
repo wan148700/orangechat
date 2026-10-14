@@ -15,6 +15,7 @@ internal data class GroupLine(
     val modelId: String? = null,
     val message: UIMessage? = null,
     val memberKey: String? = null,
+    val addressedMemberKeys: List<String> = emptyList(),
 )
 
 @Serializable
@@ -74,18 +75,38 @@ internal fun mentionedMemberKeys(text: String, targets: List<MentionTarget>): Li
     }.map { it.key }
 }
 
-/** Each recipient sees only its own replies as ASSISTANT; every other speaker is labelled context. */
-internal fun groupSyncMessages(room: GroupRoom, recipientKey: String): List<UIMessage> = room.lines.map { line ->
-    val ownReply = line.memberKey == recipientKey && line.message?.role != MessageRole.USER
-    val stableId = Uuid.parse(UUID.nameUUIDFromBytes("group:${room.id}:$recipientKey:${line.id}".toByteArray()).toString())
-    (line.message ?: UIMessage.user(line.text)).copy(
-        id = stableId,
-        role = if (ownReply) MessageRole.ASSISTANT else MessageRole.USER,
-        parts = listOf(UIMessagePart.Text("[群聊·${room.title}｜${line.sender}]\n${line.text}")),
-        modelId = if (ownReply) line.message?.modelId else null,
-    )
+/** Only relevant user messages and the recipient's own replies enter its private window. */
+internal fun groupSyncMessageId(room: GroupRoom, recipientKey: String, line: GroupLine): Uuid =
+    Uuid.parse(UUID.nameUUIDFromBytes("group:${room.id}:$recipientKey:${line.id}".toByteArray()).toString())
+
+internal fun groupLineBelongsToRecipient(room: GroupRoom, line: GroupLine, recipientKey: String): Boolean {
+    if (line.memberKey != null) return line.memberKey == recipientKey
+    if (line.message?.role != MessageRole.USER && line.sender != "我") return false
+    val targets = room.lines.mapNotNull { reply -> reply.memberKey?.let { MentionTarget(it, reply.sender) } }.distinctBy { it.key }
+    val addressed = line.addressedMemberKeys.ifEmpty { mentionedMemberKeys(line.text, targets) }
+    return addressed.isEmpty() || recipientKey in addressed
 }
 
+internal fun groupObsoleteSyncIds(room: GroupRoom, recipientKey: String): Set<Uuid> = room.lines
+    .filterNot { groupLineBelongsToRecipient(room, it, recipientKey) }
+    .map { groupSyncMessageId(room, recipientKey, it) }.toSet()
+
+internal fun groupSyncMessages(room: GroupRoom, recipientKey: String): List<UIMessage> = room.lines
+    .filter { groupLineBelongsToRecipient(room, it, recipientKey) }.map { line ->
+        val ownReply = line.memberKey == recipientKey
+        (line.message ?: UIMessage.user(line.text)).copy(
+            id = groupSyncMessageId(room, recipientKey, line),
+            role = if (ownReply) MessageRole.ASSISTANT else MessageRole.USER,
+            parts = listOf(UIMessagePart.Text("[群聊·${room.title}｜${line.sender}]\n${line.text}")),
+            modelId = if (ownReply) line.message?.modelId else null,
+        )
+    }
+
+internal fun isMemberConversationRequest(text: String): Boolean =
+    Regex("互相.*(聊|讨论|说)|你们.*(聊|讨论)|彼此.*(聊|讨论)").containsMatchIn(text)
+
+internal fun memberConversationPlan(keys: List<String>, rounds: Int): List<String> =
+    if (keys.size < 2) emptyList() else List(rounds.coerceIn(1, 6)) { keys }.flatten().take(24)
 
 /** A mention in agreement is not an invitation to generate another message. */
 internal fun requestedMemberKeys(text: String, targets: List<MentionTarget>): List<String> {

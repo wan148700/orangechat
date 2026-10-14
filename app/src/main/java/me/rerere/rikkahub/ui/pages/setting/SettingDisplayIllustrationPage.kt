@@ -31,6 +31,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import android.content.Context
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import me.rerere.rikkahub.ui.pages.group.GroupRoom
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,6 +73,33 @@ fun SettingDisplayIllustrationPage(vm: SettingVM = koinViewModel()) {
     val settingsBgDir = remember { File(context.filesDir, "settings_backgrounds").apply { mkdirs() } }
     val bgDir = remember { File(context.filesDir, "input_backgrounds").apply { mkdirs() } }
     val drawerBgDir = remember { File(context.filesDir, "drawer_backgrounds").apply { mkdirs() } }
+
+    val groupPrefs = remember { context.getSharedPreferences("task_group_rooms", Context.MODE_PRIVATE) }
+    val groupJson = remember { Json { ignoreUnknownKeys = true } }
+    var groupRooms by remember { mutableStateOf(runCatching {
+        groupJson.decodeFromString<List<GroupRoom>>(groupPrefs.getString("rooms", "[]") ?: "[]")
+    }.getOrDefault(emptyList())) }
+    var groupBgTarget by remember { mutableStateOf("chat") }
+    val groupBgDir = remember { File(context.filesDir, "group_backgrounds").apply { mkdirs() } }
+    fun saveGroupRoomBackground(id: String, path: String) {
+        groupRooms = groupRooms.map { if (it.id == id) it.copy(backgroundPath = path) else it }
+        groupPrefs.edit().putString("rooms", groupJson.encodeToString(groupRooms)).apply()
+    }
+    val groupBgPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val dest = File(groupBgDir, "group_${System.currentTimeMillis()}.img")
+            val copied = runCatching {
+                context.contentResolver.openInputStream(uri)?.use { input -> dest.outputStream().use { input.copyTo(it) } }
+                    ?: error("图片无法打开")
+                require(android.graphics.BitmapFactory.decodeFile(dest.absolutePath) != null)
+            }.isSuccess
+            if (copied) when (groupBgTarget) {
+                "chat" -> updateDisplaySetting(displaySetting.copy(groupChatBackgroundPath = dest.absolutePath))
+                "list" -> updateDisplaySetting(displaySetting.copy(groupListBackgroundPath = dest.absolutePath))
+                else -> saveGroupRoomBackground(groupBgTarget, dest.absolutePath)
+            } else dest.delete()
+        }
+    }
 
     // Settings background picker launcher
     val settingsBgPickerLauncher = rememberLauncherForActivityResult(
@@ -172,6 +203,27 @@ fun SettingDisplayIllustrationPage(vm: SettingVM = koinViewModel()) {
             contentPadding = contentPadding + PaddingValues(8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                CardGroup(modifier = Modifier.padding(horizontal = 8.dp), title = { Text("群聊背景") }) {
+                    item(headlineContent = { Text("群聊默认背景") }, supportingContent = { Text("独立于普通聊天；每个群也可单独设置") },
+                        trailingContent = { Row {
+                            TextButton(onClick = { updateDisplaySetting(displaySetting.copy(groupChatBackgroundPath = "")) }) { Text("清除") }
+                            TextButton(onClick = { groupBgTarget = "chat"; groupBgPicker.launch(arrayOf("image/*")) }) { Text("选择") }
+                        } })
+                    item(headlineContent = { Text("群聊列表界面背景") }, trailingContent = { Row {
+                        TextButton(onClick = { updateDisplaySetting(displaySetting.copy(groupListBackgroundPath = "")) }) { Text("清除") }
+                        TextButton(onClick = { groupBgTarget = "list"; groupBgPicker.launch(arrayOf("image/*")) }) { Text("选择") }
+                    } })
+                    groupRooms.forEach { room ->
+                        item(headlineContent = { Text("群：${room.title}") }, supportingContent = { Text(if (room.backgroundPath.isBlank()) "使用群聊默认背景" else "已设置独立背景") },
+                            trailingContent = { Row {
+                                TextButton(onClick = { saveGroupRoomBackground(room.id, "") }) { Text("清除") }
+                                TextButton(onClick = { groupBgTarget = room.id; groupBgPicker.launch(arrayOf("image/*")) }) { Text("选择") }
+                            } })
+                    }
+                }
+            }
+
             // Settings Background
             item {
                 CardGroup(

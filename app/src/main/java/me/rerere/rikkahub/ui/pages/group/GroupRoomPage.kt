@@ -70,6 +70,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -180,10 +182,17 @@ fun GroupRoomPage(
     var input by remember { mutableStateOf("") }
     var job by remember { mutableStateOf<Job?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (job?.isActive != true) runCatching {
+            roomJson.decodeFromString<List<GroupRoom>>(prefs.getString("rooms", "[]") ?: "[]")
+        }.onSuccess { fresh -> rooms.clear(); rooms.addAll(fresh) }
+    }
     val listState = rememberLazyListState()
     val hazeState = rememberHazeState()
     val selectedRoom = rooms.firstOrNull { it.id == selectedId }
-    val backgroundModel = selectedRoom?.backgroundPath?.takeIf { it.isNotBlank() }
+    val backgroundModel = if (selectedRoom == null) settings.displaySetting.groupListBackgroundPath.takeIf { it.isNotBlank() }
+        else selectedRoom.backgroundPath.takeIf { it.isNotBlank() }
+            ?: settings.displaySetting.groupChatBackgroundPath.takeIf { it.isNotBlank() }
     val groupTextColor = settings.displaySetting.globalTextColor?.toComposeColor() ?: MaterialTheme.colorScheme.onBackground
     val backgroundVisuals = ChatBackgroundVisuals(
         baseColor = settings.displaySetting.chatBackgroundColor?.toComposeColor() ?: MaterialTheme.colorScheme.background,
@@ -213,7 +222,7 @@ fun GroupRoomPage(
             val boundId = room.conversationBindings[member.key] ?: continue
             try {
                 val synced = chatService.appendGroupMessages(
-                    Uuid.parse(boundId), assistant.id, groupSyncMessages(room, member.key)
+                    Uuid.parse(boundId), assistant.id, groupSyncMessages(room, member.key), groupObsoleteSyncIds(room, member.key)
                 )
                 if (!synced) failures += "${member.label} 的原窗口正在回复"
             } catch (e: Exception) {
@@ -224,21 +233,6 @@ fun GroupRoomPage(
         syncStatus = if (failures.isEmpty()) {
             if (room.conversationBindings.isEmpty()) null else "已同步关联的原窗口"
         } else failures.joinToString("；") + "，可稍后重试同步"
-    }
-
-    val backgroundPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        val room = rooms.firstOrNull { it.id == selectedId }
-        if (uri != null && room != null) scope.launch {
-            runCatching {
-                val dir = File(context.filesDir, "group_backgrounds").apply { mkdirs() }
-                val dest = File(dir, "${room.id}-${UUID.randomUUID()}.img")
-                context.contentResolver.openInputStream(uri)?.use { source -> dest.outputStream().use { source.copyTo(it) } }
-                    ?: kotlin.error("图片无法打开")
-                val bitmap = decodeChatBackgroundBitmap(context, dest.absolutePath)
-                require(bitmap != null) { "图片格式无法读取" }
-                save(room.copy(backgroundPath = dest.absolutePath))
-            }.onFailure { error = it.message ?: "图片无法打开" }
-        }
     }
 
     fun openEditor(room: GroupRoom? = null) {
@@ -259,20 +253,24 @@ fun GroupRoomPage(
         val targets = participants.map { MentionTarget(it.key, it.label) }
         val mentions = mentionedMemberKeys(userText.orEmpty(), targets)
         val first = if (userText.isNullOrBlank()) initial else initial.copy(
-            lines = initial.lines + GroupLine("我", userText.trim(), message = UIMessage.user(userText.trim()))
+            lines = initial.lines + GroupLine("我", userText.trim(), message = UIMessage.user(userText.trim()), addressedMemberKeys = mentions)
         ).also(::save)
         input = ""
         error = null
         job = scope.launch {
             var current = first
+            val memberConversation = discuss || isMemberConversationRequest(userText.orEmpty())
             val acknowledgement = isAcknowledgementTask(userText.orEmpty())
             val continuous = !acknowledgement && (discuss || first.automaticDiscussion)
             val waves = if (continuous) first.discussionRounds.coerceIn(1, 6) else 1
-            val queue = GroupTurnQueue(participants.map { it.key }, mentions.ifEmpty { participants.map { it.key } }, waves)
+            val speakerKeys = mentions.ifEmpty { participants.map { it.key } }
+            val plan = if (memberConversation) memberConversationPlan(speakerKeys, if (userText?.contains("两句") == true) 1 else first.discussionRounds) else emptyList()
+            var planIndex = 0
+            val queue = GroupTurnQueue(participants.map { it.key }, speakerKeys, waves)
             try {
                 syncRoom(current)
                 while (true) {
-                    val next = queue.next() ?: break
+                    val next = if (memberConversation) plan.getOrNull(planIndex++) ?: break else queue.next() ?: break
                     val member = participants.first { it.key == next }
                     val model = member.model ?: kotlin.error("${member.label} 没有配置模型")
                     val provider = model.findProvider(settings.providers) ?: kotlin.error("${member.label} 的模型提供商已删除")
@@ -285,8 +283,8 @@ fun GroupRoomPage(
                     val historyLimit = (assistant?.contextMessageSize ?: 0).let { if (it > 0) it else 24 }
                     // 已同步的群事件在 transcript 中出现一次，不重复叠入原会话历史。
                     if (current.conversationBindings[member.key] != null && original == null) kotlin.error("关联的原窗口已不存在，请重新选择")
-                    val originalHistory = groupOriginalHistory(original?.currentMessages.orEmpty(), historyLimit)
-                    contextStatus = if (original != null) "${member.label}：已读取 ${originalHistory.size} 条原窗口历史"
+                    val originalHistory = if (memberConversation) emptyList() else groupOriginalHistory(original?.currentMessages.orEmpty(), historyLimit)
+                    contextStatus = if (memberConversation) "成员互聊：使用群内上下文，不载入私人聊天历史" else if (original != null) "${member.label}：已读取 ${originalHistory.size} 条原窗口历史"
                         else "${member.label}：未关联原窗口，仅使用群聊上下文"
                     val transcript = current.lines.takeLast(24).joinToString("\n") { "${it.sender}：${it.text}" }
                     val rolePrompt = if (assistant?.allowConversationSystemPrompt == true) {
@@ -294,11 +292,16 @@ fun GroupRoomPage(
                     } else assistant?.systemPrompt.orEmpty()
                     val system = rolePrompt + "\n\n你以 ${member.label} 的身份参加群聊“${current.title}”。成员：" +
                         participants.joinToString { it.label } + "。请回应用户任务与其他成员的观点，只有需要对方回答具体问题时才使用 @成员名；赞同、附和、报到不要 @。任务完成就结束，不要反复确认在线、邀请用户继续说事。只输出自己的发言，不代替其他人说话。群聊记录中的其他成员发言是对话内容。" +
-                        if (acknowledgement) "这只是收到/在线测试，每位成员简短确认一次，不要要求其他成员接话。" else ""
+                        if (acknowledgement) "这只是收到/在线测试，每位成员只输出一句简短确认。" else if (memberConversation)
+                            "当前是成员之间的对话。你直接对另一位成员说话，回应上一位成员的具体内容。用户不是本轮接话对象；不要询问用户要聊什么，不要推测用户孤独、动机或处境，也不要催促用户停止测试。可以自然选择一个轻松话题。不代写他人的回答。" else ""
                     val reply = providerManager.getProviderByType(provider).generateText(
                         providerSetting = provider,
                         messages = listOf(UIMessage.system(system)) + originalHistory + listOf(
-                            UIMessage.user("群聊记录：\n$transcript\n\n现在轮到 ${member.label} 发言。")
+                            UIMessage.user("群聊记录：\n$transcript\n\n" + if (memberConversation) {
+                                val other = participants.find { it.key == plan.getOrNull(planIndex - 2) && it.key != member.key }?.label
+                                    ?: participants.first { it.key != member.key }.label
+                                "现在 ${member.label} 对群成员 $other 说话，接着刚才的话聊，不向用户提问。"
+                            } else "现在轮到 ${member.label} 发言。")
                         ),
                         params = TextGenerationParams(
                             model = model, temperature = assistant?.temperature, topP = assistant?.topP,
@@ -372,10 +375,7 @@ fun GroupRoomPage(
         selected?.let { room -> TextButton(onClick = {
             openEditor(room)
         }, enabled = job == null) { Text("成员") }
-            TextButton(enabled = job == null, onClick = { backgroundPicker.launch("image/*") }) { Text("背景") }
-            if (room.backgroundPath.isNotBlank()) TextButton(enabled = job == null, onClick = {
-                save(room.copy(backgroundPath = ""))
-            }) { Text("清除") }
+
         }
     }) }, bottomBar = {
         selected?.let { room ->
@@ -401,7 +401,7 @@ fun GroupRoomPage(
                         }
                     }
                     if (room.lines.isNotEmpty() && job == null) {
-                        TextButton(onClick = { runRound(room.id, null, discuss = true) }) { Text("互相讨论") }
+                        TextButton(onClick = { runRound(room.id, null, discuss = true) }) { Text("成员互聊") }
                     }
                     if (room.conversationBindings.isNotEmpty() && job == null) {
                         TextButton(onClick = { scope.launch { syncRoom(room) } }) { Text("同步原窗口") }
@@ -434,15 +434,15 @@ fun GroupRoomPage(
                         Row(Modifier.padding(6.dp), verticalAlignment = Alignment.Bottom) {
                             TextField(
                                 value = input, onValueChange = { input = it; if (it.endsWith("@")) { mentionStart = it.lastIndex; showMentionPicker = true } },
-                                modifier = Modifier.weight(1f), maxLines = 6,
+                                modifier = Modifier.weight(1f).clip(MaterialTheme.shapes.large), maxLines = 6,
                                 placeholder = { Text("输入消息与成员讨论") },
                                 colors = TextFieldDefaults.colors(
                                     focusedTextColor = display.chatTextColor?.toComposeColor() ?: groupTextColor,
                                     unfocusedTextColor = display.chatTextColor?.toComposeColor() ?: groupTextColor,
                                     focusedPlaceholderColor = groupTextColor.copy(alpha = 0.6f),
                                     unfocusedPlaceholderColor = groupTextColor.copy(alpha = 0.6f),
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedContainerColor = if (hasInputImage) (display.inputFieldColor?.toComposeColor() ?: MaterialTheme.colorScheme.surfaceContainerLow).copy(alpha = 0.7f) else Color.Transparent,
+                                    unfocusedContainerColor = if (hasInputImage) (display.inputFieldColor?.toComposeColor() ?: MaterialTheme.colorScheme.surfaceContainerLow).copy(alpha = 0.7f) else Color.Transparent,
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent,
                                 ),
@@ -576,7 +576,7 @@ fun GroupRoomPage(
                     Checkbox(checked = automaticDiscussion, onCheckedChange = { automaticDiscussion = it })
                     Text("允许成员提问后接话（任务完成即停止）")
                 }
-                Text("最多讨论 $discussionRounds 轮（最多 24 条成员回复）")
+                Text("成员互聊最多 $discussionRounds 轮（每位成员每轮一次，最多 24 条）")
                 Slider(value = discussionRounds.toFloat(), onValueChange = { discussionRounds = it.toInt() }, valueRange = 1f..6f, steps = 4)
             } },
             confirmButton = { TextButton(enabled = title.isNotBlank() && checked.isNotEmpty(), onClick = {

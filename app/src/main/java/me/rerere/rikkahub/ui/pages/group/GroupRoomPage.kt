@@ -233,7 +233,7 @@ fun GroupRoomPage(
                 val dir = File(context.filesDir, "group_backgrounds").apply { mkdirs() }
                 val dest = File(dir, "${room.id}-${UUID.randomUUID()}.img")
                 context.contentResolver.openInputStream(uri)?.use { source -> dest.outputStream().use { source.copyTo(it) } }
-                    ?: error("图片无法打开")
+                    ?: kotlin.error("图片无法打开")
                 val bitmap = decodeChatBackgroundBitmap(context, dest.absolutePath)
                 require(bitmap != null) { "图片格式无法读取" }
                 save(room.copy(backgroundPath = dest.absolutePath))
@@ -442,11 +442,7 @@ fun GroupRoomPage(
                                     focusedPlaceholderColor = groupTextColor.copy(alpha = 0.6f),
                                     unfocusedPlaceholderColor = groupTextColor.copy(alpha = 0.6f),
                                     focusedContainerColor = Color.Transparent,
-                                    unfocusedTextColor = display.chatTextColor?.toComposeColor() ?: groupTextColor,
-                                    unfocusedTextColor = display.chatTextColor?.toComposeColor() ?: groupTextColor,
-                                    focusedPlaceholderColor = groupTextColor.copy(alpha = 0.6f),
-                                    unfocusedPlaceholderColor = groupTextColor.copy(alpha = 0.6f),
-                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent,
                                 ),
@@ -533,7 +529,7 @@ fun GroupRoomPage(
                         }
                     }) { Text(assistant.name.ifBlank { "默认角色" }) }
                 }
-            } }, confirmButton = { TextButton(onClick = { rolePickerModel = null }) { Text("取消") })
+            } }, confirmButton = { TextButton(onClick = { rolePickerModel = null }) { Text("取消") } })
     }
 
     if (showRoomEditor) {

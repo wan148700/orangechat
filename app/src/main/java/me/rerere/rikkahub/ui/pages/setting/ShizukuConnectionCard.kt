@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import me.rerere.rikkahub.data.shizuku.ShizukuDiagnostics
@@ -74,7 +75,12 @@ fun ShizukuConnectionCard() {
                             val result = ShizukuDiagnostics.test(context)
                             refresh()
                             testResult = when (result["status"]?.jsonPrimitive?.contentOrNull) {
-                                "test_passed" -> "测试通过：" + (result["test"]?.toString() ?: "")
+                                "test_passed" -> {
+                                    val uid = result["test"]?.jsonObject?.get("uid").toString()
+                                    val mode = if (uid == "0") "Root 模式" else "ADB 模式"
+                                    val time = android.text.format.DateFormat.format("HH:mm:ss", System.currentTimeMillis())
+                                    "$time 测试通过，可以执行命令（$mode）"
+                                }
                                 "permission_required" -> "未授权，请先点授权。"
                                 "disconnected" -> "连接已断开，请启动 Shizuku。"
                                 else -> "测试失败：" + (result["error"]?.jsonPrimitive?.contentOrNull ?: result.toString())
@@ -84,6 +90,7 @@ fun ShizukuConnectionCard() {
                 }) { Text(if (busy) "测试中…" else "只读测试") }
             }
         )
-        item(headlineContent = { Text("AI 连接自检") }, supportingContent = { Text("AI 可调用 shizuku_status 自检。测试仅读取身份信息，不修改手机设置。") })
+        item(headlineContent = { Text("AI 命令执行") }, supportingContent = { Text("AI 可调用 shizuku_shell 执行你要求的命令，并收到输出和退出码。") })
+        item(headlineContent = { Text("AI 连接自检") }, supportingContent = { Text("AI 可调用 shizuku_status 自检。检测仅读取身份信息；命令执行遵循现有工具确认设置。") })
     }
 }

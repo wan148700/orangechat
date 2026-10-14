@@ -76,7 +76,7 @@ jobs:
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace 2>&1 | tee -a ci-failure.log
+          ./gradlew :app:testDebugUnitTest --tests me.rerere.rikkahub.data.shizuku.ShellCommandRunnerTest assembleDebug --stacktrace 2>&1 | tee -a ci-failure.log
 
       - name: Upload APK artifact
         if: success()

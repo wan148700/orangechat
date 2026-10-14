@@ -16,6 +16,7 @@ internal data class GroupLine(
     val message: UIMessage? = null,
     val memberKey: String? = null,
     val addressedMemberKeys: List<String> = emptyList(),
+    val roundId: String? = null,
 )
 
 @Serializable
@@ -79,13 +80,19 @@ internal fun mentionedMemberKeys(text: String, targets: List<MentionTarget>): Li
 internal fun groupSyncMessageId(room: GroupRoom, recipientKey: String, line: GroupLine): Uuid =
     Uuid.parse(UUID.nameUUIDFromBytes("group:${room.id}:$recipientKey:${line.id}".toByteArray()).toString())
 
-internal fun groupLineBelongsToRecipient(room: GroupRoom, line: GroupLine, recipientKey: String): Boolean {
-    if (line.memberKey != null) return line.memberKey == recipientKey
-    if (line.message?.role != MessageRole.USER && line.sender != "我") return false
-    val targets = room.lines.mapNotNull { reply -> reply.memberKey?.let { MentionTarget(it, reply.sender) } }.distinctBy { it.key }
-    val addressed = line.addressedMemberKeys.ifEmpty { mentionedMemberKeys(line.text, targets) }
-    return addressed.isEmpty() || recipientKey in addressed
+/** Legacy records infer a round at each user message; new records store an explicit round ID. */
+internal fun groupRounds(room: GroupRoom): List<List<GroupLine>> {
+    var legacyRound = room.lines.firstOrNull()?.id.orEmpty()
+    return room.lines.groupBy { line ->
+        if (line.memberKey == null && (line.sender == "我" || line.message?.role == MessageRole.USER)) legacyRound = line.id
+        line.roundId ?: "legacy:$legacyRound"
+    }.values.toList()
 }
+
+internal fun groupLineBelongsToRecipient(room: GroupRoom, line: GroupLine, recipientKey: String): Boolean =
+    groupRounds(room).any { round ->
+        round.any { it.id == line.id } && round.any { it.memberKey == recipientKey }
+    }
 
 internal fun groupObsoleteSyncIds(room: GroupRoom, recipientKey: String): Set<Uuid> = room.lines
     .filterNot { groupLineBelongsToRecipient(room, it, recipientKey) }
@@ -97,7 +104,8 @@ internal fun groupSyncMessages(room: GroupRoom, recipientKey: String): List<UIMe
         (line.message ?: UIMessage.user(line.text)).copy(
             id = groupSyncMessageId(room, recipientKey, line),
             role = if (ownReply) MessageRole.ASSISTANT else MessageRole.USER,
-            parts = listOf(UIMessagePart.Text("[群聊·${room.title}｜${line.sender}]\n${line.text}")),
+            parts = listOf(UIMessagePart.Text("[群聊·${room.title}｜${line.sender}]\n" +
+                (if (line.memberKey != null && !ownReply) "[其他群成员发言，不是用户发言]\n" else "") + line.text)),
             modelId = if (ownReply) line.message?.modelId else null,
         )
     }

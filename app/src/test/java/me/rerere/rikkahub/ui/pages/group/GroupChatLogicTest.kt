@@ -22,7 +22,7 @@ class GroupChatLogicTest {
             GroupLine("Anna", "补充", memberKey = "b", message = UIMessage.assistant("补充")),
         ))
         val first = groupSyncMessages(room, "a")
-        assertEquals(listOf(MessageRole.USER, MessageRole.ASSISTANT), first.map { it.role })
+        assertEquals(listOf(MessageRole.USER, MessageRole.ASSISTANT, MessageRole.USER), first.map { it.role })
         assertEquals(first.map { it.id }, groupSyncMessages(room, "a").map { it.id })
         assertNotEquals(first[0].id, groupSyncMessages(room, "b")[0].id)
     }
@@ -81,15 +81,36 @@ class GroupChatLogicTest {
         assertEquals(listOf(MessageRole.USER, MessageRole.ASSISTANT), history.map { it.role })
     }
 
-    @Test fun privateSyncDoesNotIncludeOtherMembersOrTheirDirectedUserMessages() {
+    @Test fun completeRoundGoesOnlyToItsActualParticipantsIncludingLateJoiners() {
         val room = GroupRoom(title = "测试", lines = listOf(
-            GroupLine("我", "@Anna 请回复", message = UIMessage.user("@Anna 请回复"), addressedMemberKeys = listOf("b")),
-            GroupLine("Ann", "我的回复", memberKey = "a", message = UIMessage.assistant("我的回复")),
-            GroupLine("Anna", "别人的回复", memberKey = "b", message = UIMessage.assistant("别人的回复")),
+            GroupLine("我", "两位聊聊", message = UIMessage.user("两位聊聊"), roundId = "r1"),
+            GroupLine("Ann", "你好", memberKey = "a", message = UIMessage.assistant("你好"), roundId = "r1"),
+            GroupLine("Anna", "你好呀", memberKey = "b", message = UIMessage.assistant("你好呀"), roundId = "r1"),
+            GroupLine("小 克", "加入", memberKey = "c", message = UIMessage.assistant("加入"), roundId = "r1"),
+            GroupLine("我", "只问Ann", message = UIMessage.user("只问Ann"), roundId = "r2"),
+            GroupLine("Ann", "收到", memberKey = "a", message = UIMessage.assistant("收到"), roundId = "r2"),
         ))
-        assertEquals(listOf("[群聊·测试｜Ann]\n我的回复"), groupSyncMessages(room, "a").map { it.toText() })
-        assertEquals(2, groupObsoleteSyncIds(room, "a").size)
-        assertEquals(2, groupSyncMessages(room, "b").size)
+        assertEquals(6, groupSyncMessages(room, "a").size)
+        assertEquals(4, groupSyncMessages(room, "b").size)
+        assertEquals(4, groupSyncMessages(room, "c").size)
+        assertEquals(0, groupSyncMessages(room, "d").size)
+        assertEquals(listOf(MessageRole.USER, MessageRole.USER, MessageRole.ASSISTANT, MessageRole.USER), groupSyncMessages(room, "b").map { it.role })
+        assertEquals(true, groupSyncMessages(room, "b")[1].toText().contains("不是用户发言"))
+        assertEquals(groupSyncMessages(room, "b").map { it.id }, groupSyncMessages(room, "b").map { it.id })
+    }
+
+    @Test fun twoPersonRoundIsNotWrittenToOtherWindowsAndLegacyRoundsRemainSeparate() {
+        val room = GroupRoom(title = "测试", lines = listOf(
+            GroupLine("我", "两位聊聊", message = UIMessage.user("两位聊聊")),
+            GroupLine("Ann", "你好", memberKey = "a", message = UIMessage.assistant("你好")),
+            GroupLine("Anna", "你好呀", memberKey = "b", message = UIMessage.assistant("你好呀")),
+            GroupLine("我", "只问小克", message = UIMessage.user("只问小克")),
+            GroupLine("小 克", "收到", memberKey = "c", message = UIMessage.assistant("收到")),
+        ))
+        assertEquals(3, groupSyncMessages(room, "a").size)
+        assertEquals(3, groupSyncMessages(room, "b").size)
+        assertEquals(2, groupSyncMessages(room, "c").size)
+        assertEquals(3, groupObsoleteSyncIds(room, "c").size)
     }
 
     @Test fun memberConversationUsesBoundedAlternatingSpeakers() {

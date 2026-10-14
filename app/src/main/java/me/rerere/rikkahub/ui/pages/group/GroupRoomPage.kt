@@ -252,8 +252,9 @@ fun GroupRoomPage(
         if (participants.isEmpty()) { error = "请先选择角色或模型"; return }
         val targets = participants.map { MentionTarget(it.key, it.label) }
         val mentions = mentionedMemberKeys(userText.orEmpty(), targets)
+        val roundId = UUID.randomUUID().toString()
         val first = if (userText.isNullOrBlank()) initial else initial.copy(
-            lines = initial.lines + GroupLine("我", userText.trim(), message = UIMessage.user(userText.trim()), addressedMemberKeys = mentions)
+            lines = initial.lines + GroupLine("我", userText.trim(), message = UIMessage.user(userText.trim()), addressedMemberKeys = mentions, roundId = roundId)
         ).also(::save)
         input = ""
         error = null
@@ -265,13 +266,14 @@ fun GroupRoomPage(
             val waves = if (continuous) first.discussionRounds.coerceIn(1, 6) else 1
             val speakerKeys = mentions.ifEmpty { participants.map { it.key } }
             val plan = if (memberConversation) memberConversationPlan(speakerKeys, if (userText?.contains("两句") == true) 1 else first.discussionRounds) else emptyList()
+            val memberPlan = plan.toMutableList()
             var planIndex = 0
             val memberContextStart = if (userText.isNullOrBlank()) first.lines.size else (first.lines.size - 1).coerceAtLeast(0)
             val queue = GroupTurnQueue(participants.map { it.key }, speakerKeys, waves)
             try {
                 syncRoom(current)
                 while (true) {
-                    val next = if (memberConversation) plan.getOrNull(planIndex++) ?: break else queue.next() ?: break
+                    val next = if (memberConversation) { if (planIndex >= 24) break; memberPlan.getOrNull(planIndex++) ?: break } else queue.next() ?: break
                     val member = participants.first { it.key == next }
                     val model = member.model ?: kotlin.error("${member.label} 没有配置模型")
                     val provider = model.findProvider(settings.providers) ?: kotlin.error("${member.label} 的模型提供商已删除")
@@ -299,7 +301,7 @@ fun GroupRoomPage(
                         providerSetting = provider,
                         messages = listOf(UIMessage.system(system)) + originalHistory + listOf(
                             UIMessage.user("群聊记录：\n$transcript\n\n" + if (memberConversation) {
-                                val other = participants.find { it.key == plan.getOrNull(planIndex - 2) && it.key != member.key }?.label
+                                val other = participants.find { it.key == memberPlan.getOrNull(planIndex - 2) && it.key != member.key }?.label
                                     ?: participants.first { it.key != member.key }.label
                                 "现在 ${member.label} 对群成员 $other 说话，接着刚才的话聊，不向用户提问。"
                             } else "现在轮到 ${member.label} 发言。")
@@ -317,13 +319,15 @@ fun GroupRoomPage(
                             member.label, reply,
                             modelId = model.id.toString(),
                             message = UIMessage.assistant(reply).copy(modelId = model.id),
-                            memberKey = member.key,
+                            memberKey = member.key, roundId = roundId,
                         ))
                         save(current)
                         syncRoom(current)
                         val directed = if (continuous) requestedMemberKeys(reply, targets).filter { it != member.key } else emptyList()
                         // 明确 @ 的成员先接话；去掉已排队副本，轮次预算阻止互相 @ 的无限循环。
-                        queue.followMentions(directed)
+                        if (memberConversation) {
+                            directed.filter { it !in memberPlan }.asReversed().forEach { memberPlan.add(planIndex, it) }
+                        } else queue.followMentions(directed)
                     }
                     queue.finishTurn()
                 }

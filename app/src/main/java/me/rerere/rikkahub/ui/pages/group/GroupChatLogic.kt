@@ -94,12 +94,18 @@ internal fun groupLineBelongsToRecipient(room: GroupRoom, line: GroupLine, recip
         round.any { it.id == line.id } && round.any { it.memberKey == recipientKey }
     }
 
-internal fun groupObsoleteSyncIds(room: GroupRoom, recipientKey: String): Set<Uuid> = room.lines
-    .filterNot { groupLineBelongsToRecipient(room, it, recipientKey) }
-    .map { groupSyncMessageId(room, recipientKey, it) }.toSet()
+internal fun groupSyncLines(room: GroupRoom, recipientKey: String): List<GroupLine> {
+    val visibleIds = groupRounds(room).filter { round -> round.any { it.memberKey == recipientKey } }
+        .flatten().map { it.id }.toSet()
+    return room.lines.filter { it.id in visibleIds }
+}
 
-internal fun groupSyncMessages(room: GroupRoom, recipientKey: String): List<UIMessage> = room.lines
-    .filter { groupLineBelongsToRecipient(room, it, recipientKey) }.map { line ->
+internal fun groupObsoleteSyncIds(room: GroupRoom, recipientKey: String): Set<Uuid> {
+    val visibleIds = groupSyncLines(room, recipientKey).map { it.id }.toSet()
+    return room.lines.filterNot { it.id in visibleIds }.map { groupSyncMessageId(room, recipientKey, it) }.toSet()
+}
+
+internal fun groupSyncMessages(room: GroupRoom, recipientKey: String): List<UIMessage> = groupSyncLines(room, recipientKey).map { line ->
         val ownReply = line.memberKey == recipientKey
         (line.message ?: UIMessage.user(line.text)).copy(
             id = groupSyncMessageId(room, recipientKey, line),

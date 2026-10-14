@@ -264,7 +264,10 @@ fun GroupRoomPage(
             val acknowledgement = isAcknowledgementTask(userText.orEmpty())
             val continuous = !acknowledgement && (discuss || first.automaticDiscussion)
             val waves = if (continuous) first.discussionRounds.coerceIn(1, 6) else 1
-            val speakerKeys = mentions.ifEmpty { participants.map { it.key } }
+            val speakerKeys = mentions.ifEmpty {
+                val named = if (memberConversation) participants.filter { userText.orEmpty().contains(it.label, ignoreCase = true) }.map { it.key } else emptyList()
+                named.takeIf { it.size >= 2 } ?: participants.map { it.key }
+            }
             val plan = if (memberConversation) memberConversationPlan(speakerKeys, if (userText?.contains("两句") == true) 1 else first.discussionRounds) else emptyList()
             val memberPlan = plan.toMutableList()
             var planIndex = 0
@@ -301,7 +304,8 @@ fun GroupRoomPage(
                         providerSetting = provider,
                         messages = listOf(UIMessage.system(system)) + originalHistory + listOf(
                             UIMessage.user("群聊记录：\n$transcript\n\n" + if (memberConversation) {
-                                val other = participants.find { it.key == memberPlan.getOrNull(planIndex - 2) && it.key != member.key }?.label
+                                val otherKey = memberPlan.getOrNull(planIndex - 2) ?: memberPlan.getOrNull(planIndex)
+                                val other = participants.find { it.key == otherKey && it.key != member.key }?.label
                                     ?: participants.first { it.key != member.key }.label
                                 "现在 ${member.label} 对群成员 $other 说话，接着刚才的话聊，不向用户提问。"
                             } else "现在轮到 ${member.label} 发言。")
@@ -323,7 +327,7 @@ fun GroupRoomPage(
                         ))
                         save(current)
                         syncRoom(current)
-                        val directed = if (continuous) requestedMemberKeys(reply, targets).filter { it != member.key } else emptyList()
+                        val directed = if (continuous || memberConversation) requestedMemberKeys(reply, targets).filter { it != member.key } else emptyList()
                         // 明确 @ 的成员先接话；去掉已排队副本，轮次预算阻止互相 @ 的无限循环。
                         if (memberConversation) {
                             directed.filter { it !in memberPlan }.asReversed().forEach { memberPlan.add(planIndex, it) }

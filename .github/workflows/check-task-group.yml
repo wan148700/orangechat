@@ -6,6 +6,9 @@ on:
       - 'app/src/main/java/me/rerere/rikkahub/RouteActivity.kt'
       - 'app/src/main/java/me/rerere/rikkahub/ui/pages/chat/ChatDrawer.kt'
       - 'app/src/main/java/me/rerere/rikkahub/ui/pages/group/**'
+      - 'app/src/debug/**'
+      - 'app/src/main/res/**'
+      - 'app/src/main/AndroidManifest.xml'
       - '.github/workflows/check-task-group.yml'
 permissions:
   contents: read

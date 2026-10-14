@@ -1,8 +1,8 @@
-===== CI START Wed Oct  7 02:19:05 UTC 2026 =====
+===== CI START Wed Oct 14 14:02:09 UTC 2026 =====
 pwd: /home/runner/work/orangechat/orangechat
 node: v22.23.3
 npm: 10.9.9
-pnpm: /home/runner/work/_temp/a2eeda24-d665-4cbb-ab5b-7697e39a2910.sh: line 6: pnpm: command not found
+pnpm: /home/runner/work/_temp/92c07c16-41f9-4ba5-9c7f-f8bbe32e7841.sh: line 6: pnpm: command not found
 none
 
 added 1 package in 1s
@@ -14,9 +14,8 @@ Lockfile is up to date, resolution step is skipped
 Progress: resolved 1, reused 0, downloaded 0, added 0
 Packages: +607
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-Progress: resolved 607, reused 0, downloaded 244, added 244
-Progress: resolved 607, reused 0, downloaded 442, added 433
-Progress: resolved 607, reused 0, downloaded 556, added 556
+Progress: resolved 607, reused 0, downloaded 298, added 298
+Progress: resolved 607, reused 0, downloaded 516, added 508
 Progress: resolved 607, reused 0, downloaded 607, added 607, done
 .../esbuild@0.27.7/node_modules/esbuild postinstall$ node install.js
 .../esbuild@0.27.7/node_modules/esbuild postinstall: Done
@@ -74,13 +73,7 @@ devDependencies:
 + vite-plugin-svgr 4.5.0
 + vite-tsconfig-paths 5.1.4
 
-Done in 4.2s using pnpm v9.15.9
-Generating 2,048 bit RSA key pair and self-signed certificate (SHA256withRSA) with a validity of 10,000 days
-	for: CN=Android Debug, O=Android, C=US
-[Storing app/debug.keystore]
-
-Warning:
-The JKS keystore uses a proprietary format. It is recommended to migrate to PKCS12 which is an industry standard format using "keytool -importkeystore -srckeystore app/debug.keystore -destkeystore app/debug.keystore -deststoretype pkcs12".
+Done in 3.6s using pnpm v9.15.9
 Downloading https://services.gradle.org/distributions/gradle-9.4.1-bin.zip
 .............10%.............20%.............30%.............40%.............50%.............60%..............70%.............80%.............90%.............100%
 
@@ -100,53 +93,47 @@ WARNING: The option setting 'android.overridePathCheck=true' is experimental.
 The current default is 'false'.
 
 > Configure project :app
-w: file:///home/runner/work/orangechat/orangechat/app/build.gradle.kts:135:41: 'fun srcDirs(vararg srcDirs: Any): Any' is deprecated. Use `directories` mutable set instead.
+w: file:///home/runner/work/orangechat/orangechat/app/build.gradle.kts:136:41: 'fun srcDirs(vararg srcDirs: Any): Any' is deprecated. Use `directories` mutable set instead.
 
 > Configure project :material3
 w: file:///home/runner/work/orangechat/orangechat/material3/build.gradle.kts:25:20: 'fun srcDir(srcDir: Any): Any' is deprecated. Use `directories` mutable set instead.
 
-> Task :app:preBuild UP-TO-DATE
-> Task :common:preBuild UP-TO-DATE
+> Configure project :workspace
+Checking the license for package NDK (Side by side) 28.2.13676358 in /usr/local/lib/android/sdk/licenses
+License for package NDK (Side by side) 28.2.13676358 accepted.
+Preparing "Install NDK (Side by side) 28.2.13676358 v.28.2.13676358".
+"Install NDK (Side by side) 28.2.13676358 v.28.2.13676358" ready.
+Installing NDK (Side by side) 28.2.13676358 in /usr/local/lib/android/sdk/ndk/28.2.13676358
+"Install NDK (Side by side) 28.2.13676358 v.28.2.13676358" complete.
+"Install NDK (Side by side) 28.2.13676358 v.28.2.13676358" finished.
+
 > Task :document:preBuild UP-TO-DATE
 > Task :ai:preBuild UP-TO-DATE
-> Task :app:preDebugBuild UP-TO-DATE
+> Task :common:preBuild UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
 > Task :document:preDebugBuild UP-TO-DATE
 > Task :ai:preDebugBuild UP-TO-DATE
 > Task :common:preDebugBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
-> Task :app:generateDebugBuildConfig
 > Task :document:extractDebugSupportedLocales
 > Task :common:writeDebugAarMetadata
+> Task :common:generateDebugResources
 > Task :highlight:preBuild UP-TO-DATE
 > Task :highlight:preDebugBuild UP-TO-DATE
-> Task :common:generateDebugResources
-> Task :highlight:extractDebugSupportedLocales
 > Task :ai:mergeDebugJniLibFolders
+> Task :highlight:extractDebugSupportedLocales
 > Task :material3:preBuild UP-TO-DATE
 > Task :material3:preDebugBuild UP-TO-DATE
 > Task :material3:extractDebugSupportedLocales FROM-CACHE
 > Task :search:preBuild UP-TO-DATE
 > Task :search:preDebugBuild UP-TO-DATE
-> Task :app:extractDebugSupportedLocales
+> Task :common:packageDebugResources
+> Task :common:processDebugNavigationResources
 > Task :search:extractDebugSupportedLocales
 > Task :speech:preBuild UP-TO-DATE
 > Task :speech:preDebugBuild UP-TO-DATE
-> Task :app:mapDebugSourceSetPaths
 > Task :speech:extractDebugSupportedLocales FROM-CACHE
-> Task :workspace:preBuild UP-TO-DATE
-> Task :workspace:preDebugBuild UP-TO-DATE
-> Task :common:packageDebugResources
-> Task :common:processDebugNavigationResources
-> Task :workspace:extractDebugSupportedLocales FROM-CACHE
-> Task :app:generateDebugResources
-> Task :document:processDebugNavigationResources FROM-CACHE
-> Task :highlight:processDebugNavigationResources
-> Task :material3:processDebugNavigationResources FROM-CACHE
-> Task :search:processDebugNavigationResources
-> Task :speech:processDebugNavigationResources FROM-CACHE
-> Task :workspace:processDebugNavigationResources FROM-CACHE
-> Task :document:generateDebugResources FROM-CACHE
-> Task :document:packageDebugResources
 
 > Task :web:buildWebUi
 
@@ -157,19 +144,17 @@ w: file:///home/runner/work/orangechat/orangechat/material3/build.gradle.kts:25:
 transforming...
 [33mapp/components/ui/sonner.tsx (1:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
 [33mapp/components/ui/drawer.tsx (1:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
-[33mapp/components/ui/sidebar.tsx (1:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
 [33mapp/components/extended/conversation.tsx (1:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
+[33mapp/components/ui/sidebar.tsx (1:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
 [33mapp/components/ui/tooltip.tsx (1:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
 [33mapp/components/ui/sheet.tsx (1:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
-
-> Task :document:parseDebugLocalResources
-> Task :common:parseDebugLocalResources
-> Task :common:generateDebugRFile
-> Task :document:generateDebugRFile
-
-> Task :web:buildWebUi
 [33mapp/components/ui/checkbox.tsx (1:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
 [33mapp/components/ui/select.tsx (1:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
+
+> Task :common:parseDebugLocalResources
+> Task :common:generateDebugRFile
+
+> Task :web:buildWebUi
 [32m✓[39m 2800 modules transformed.
 rendering chunks...
 computing gzip size...
@@ -259,12 +244,12 @@ computing gzip size...
 [2mbuild/client/[22m[2massets/[22m[36mreg-C-SQnVFl.js                           [39m[1m[2m    2.35 kB[22m[1m[22m[2m │ gzip:   0.70 kB[22m
 [2mbuild/client/[22m[2massets/[22m[36medge-BkV0erSs.js                          [39m[1m[2m    2.36 kB[22m[1m[22m[2m │ gzip:   0.70 kB[22m
 [2mbuild/client/[22m[2massets/[22m[36mdiff-D97Zzqfu.js                          [39m[1m[2m    2.57 kB[22m[1m[22m[2m │ gzip:   0.70 kB[22m
+[2mbuild/client/[22m[2massets/[22m[36mgleam-BspZqrRM.js                         [39m[1m[2m    2.58 kB[22m[1m[22m[2m │ gzip:   0.82 kB[22m
 [33m
 (!) Some chunks are larger than 500 kB after minification. Consider:
 - Using dynamic import() to code-split the application
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
-[2mbuild/client/[22m[2massets/[22m[36mgleam-BspZqrRM.js                         [39m[1m[2m    2.58 kB[22m[1m[22m[2m │ gzip:   0.82 kB[22m
 [2mbuild/client/[22m[2massets/[22m[36merb-B12qg9BL.js                           [39m[1m[2m    2.61 kB[22m[1m[22m[2m │ gzip:   0.84 kB[22m
 [2mbuild/client/[22m[2massets/[22m[36mhy-DFXneXwc.js                            [39m[1m[2m    2.65 kB[22m[1m[22m[2m │ gzip:   1.18 kB[22m
 [2mbuild/client/[22m[2massets/[22m[36mjson-Cp-IABpG.js                          [39m[1m[2m    2.82 kB[22m[1m[22m[2m │ gzip:   0.78 kB[22m
@@ -549,7 +534,7 @@ computing gzip size...
 [2mbuild/client/[22m[2massets/[22m[36mcpp-CofmeUqb.js                           [39m[1m[33m  626.08 kB[39m[22m[2m │ gzip:  44.82 kB[22m
 [2mbuild/client/[22m[2massets/[22m[36memacs-lisp-C9XAeP06.js                    [39m[1m[33m  779.85 kB[39m[22m[2m │ gzip: 196.03 kB[22m
 [2mbuild/client/[22m[2massets/[22m[36mmermaid-GHXKKRXX-ClEuDU0A.js              [39m[1m[33m1,308.78 kB[39m[22m[2m │ gzip: 400.61 kB[22m
-[32m✓ built in 8.86s[39m
+[32m✓ built in 8.78s[39m
 [36mvite v7.3.3 [32mbuilding ssr environment for production...[36m[39m
 transforming...
 [33mapp/components/ui/sonner.tsx (1:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
@@ -564,7 +549,7 @@ rendering chunks...
 
 SPA Mode: Generated [1mbuild/client/index.html[22m
 Removing the server build in [32m/home/runner/work/orangechat/orangechat/web-ui/build/server[39m due to ssr:false
-[32m✓ built in 1.02s[39m
+[32m✓ built in 1.33s[39m
 📦 Starting build output copy...
    Source: ./build/client
    Target: ../web/src/main/resources/static
@@ -574,11 +559,20 @@ Removing the server build in [32m/home/runner/work/orangechat/orangechat/web-ui
 > Task :web:preBuild
 > Task :web:preDebugBuild
 > Task :web:extractDebugSupportedLocales FROM-CACHE
+> Task :workspace:preBuild UP-TO-DATE
+> Task :workspace:preDebugBuild UP-TO-DATE
+> Task :workspace:extractDebugSupportedLocales FROM-CACHE
+> Task :document:processDebugNavigationResources FROM-CACHE
+> Task :highlight:processDebugNavigationResources
+> Task :material3:processDebugNavigationResources FROM-CACHE
+> Task :search:processDebugNavigationResources
+> Task :speech:processDebugNavigationResources FROM-CACHE
 > Task :web:processDebugNavigationResources FROM-CACHE
-> Task :highlight:generateDebugResources
-> Task :highlight:packageDebugResources
-> Task :highlight:parseDebugLocalResources
-> Task :highlight:generateDebugRFile
+> Task :workspace:processDebugNavigationResources FROM-CACHE
+> Task :document:generateDebugResources FROM-CACHE
+> Task :document:packageDebugResources
+> Task :document:parseDebugLocalResources FROM-CACHE
+> Task :document:generateDebugRFile
 > Task :ai:checkDebugAarMetadata
 > Task :ai:mergeDebugNativeLibs NO-SOURCE
 > Task :ai:stripDebugDebugSymbols NO-SOURCE
@@ -599,136 +593,51 @@ Removing the server build in [32m/home/runner/work/orangechat/orangechat/web-ui
 > Task :ai:writeDebugAarMetadata
 > Task :ai:extractDebugSupportedLocales FROM-CACHE
 > Task :common:extractDebugSupportedLocales FROM-CACHE
+> Task :document:javaPreCompileDebug FROM-CACHE
+> Task :highlight:generateDebugResources
+> Task :highlight:packageDebugResources
+> Task :highlight:parseDebugLocalResources
+> Task :highlight:generateDebugRFile
 
 > Task :common:compileDebugKotlin
 w: file:///home/runner/work/orangechat/orangechat/common/src/main/java/me/rerere/common/http/AcceptLang.kt:67:28 'field locale: Locale!' is deprecated. Deprecated in Java.
 w: file:///home/runner/work/orangechat/orangechat/common/src/main/java/me/rerere/common/http/JsonExpression.kt:365:13 'when' is exhaustive so 'else' is redundant here.
 
 > Task :document:compileDebugKotlin
-> Task :document:javaPreCompileDebug FROM-CACHE
+> Task :common:compileDebugJavaWithJavac NO-SOURCE
+> Task :common:bundleLibCompileToJarDebug
 > Task :highlight:compileDebugKotlin
 > Task :highlight:javaPreCompileDebug FROM-CACHE
-> Task :common:compileDebugJavaWithJavac NO-SOURCE
 > Task :highlight:compileDebugJavaWithJavac NO-SOURCE
 > Task :highlight:bundleLibCompileToJarDebug
-> Task :common:bundleLibCompileToJarDebug
 > Task :material3:generateDebugResources FROM-CACHE
 > Task :material3:packageDebugResources
 > Task :material3:parseDebugLocalResources FROM-CACHE
 > Task :material3:generateDebugRFile
-
-> Task :material3:compileDebugKotlin FAILED
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:13:8 Unresolved reference 'dynamiccolor'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:15:5 Unresolved reference 'DynamicScheme'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:16:13 Unresolved reference 'DynamicScheme'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:17:16 Unresolved reference 'isDark'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:19:31 Unresolved reference 'primary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:20:33 Unresolved reference 'onPrimary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:21:40 Unresolved reference 'primaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:22:42 Unresolved reference 'onPrimaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:23:38 Unresolved reference 'inversePrimary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:24:33 Unresolved reference 'secondary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:25:35 Unresolved reference 'onSecondary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:26:42 Unresolved reference 'secondaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:27:44 Unresolved reference 'onSecondaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:28:32 Unresolved reference 'tertiary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:29:34 Unresolved reference 'onTertiary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:30:41 Unresolved reference 'tertiaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:31:43 Unresolved reference 'onTertiaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:32:34 Unresolved reference 'background'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:33:36 Unresolved reference 'onBackground'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:34:31 Unresolved reference 'surface'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:35:33 Unresolved reference 'onSurface'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:36:38 Unresolved reference 'surfaceVariant'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:37:40 Unresolved reference 'onSurfaceVariant'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:38:35 Unresolved reference 'surfaceTint'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:39:38 Unresolved reference 'inverseSurface'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:40:40 Unresolved reference 'inverseOnSurface'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:41:29 Unresolved reference 'error'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:42:31 Unresolved reference 'onError'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:43:38 Unresolved reference 'errorContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:44:40 Unresolved reference 'onErrorContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:45:31 Unresolved reference 'outline'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:46:38 Unresolved reference 'outlineVariant'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:47:29 Unresolved reference 'scrim'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:48:37 Unresolved reference 'surfaceBright'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:49:34 Unresolved reference 'surfaceDim'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:50:40 Unresolved reference 'surfaceContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:51:44 Unresolved reference 'surfaceContainerHigh'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:52:47 Unresolved reference 'surfaceContainerHighest'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:53:43 Unresolved reference 'surfaceContainerLow'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:54:46 Unresolved reference 'surfaceContainerLowest'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:55:36 Unresolved reference 'primaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:56:39 Unresolved reference 'primaryFixedDim'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:57:38 Unresolved reference 'onPrimaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:58:45 Unresolved reference 'onPrimaryFixedVariant'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:59:38 Unresolved reference 'secondaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:60:41 Unresolved reference 'secondaryFixedDim'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:61:40 Unresolved reference 'onSecondaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:62:47 Unresolved reference 'onSecondaryFixedVariant'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:63:37 Unresolved reference 'tertiaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:64:40 Unresolved reference 'tertiaryFixedDim'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:65:39 Unresolved reference 'onTertiaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:66:46 Unresolved reference 'onTertiaryFixedVariant'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:70:31 Unresolved reference 'primary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:71:33 Unresolved reference 'onPrimary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:72:40 Unresolved reference 'primaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:73:42 Unresolved reference 'onPrimaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:74:38 Unresolved reference 'inversePrimary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:75:33 Unresolved reference 'secondary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:76:35 Unresolved reference 'onSecondary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:77:42 Unresolved reference 'secondaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:78:44 Unresolved reference 'onSecondaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:79:32 Unresolved reference 'tertiary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:80:34 Unresolved reference 'onTertiary'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:81:41 Unresolved reference 'tertiaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:82:43 Unresolved reference 'onTertiaryContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:83:34 Unresolved reference 'background'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:84:36 Unresolved reference 'onBackground'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:85:31 Unresolved reference 'surface'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:86:33 Unresolved reference 'onSurface'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:87:38 Unresolved reference 'surfaceVariant'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:88:40 Unresolved reference 'onSurfaceVariant'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:89:35 Unresolved reference 'surfaceTint'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:90:38 Unresolved reference 'inverseSurface'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:91:40 Unresolved reference 'inverseOnSurface'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:92:29 Unresolved reference 'error'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:93:31 Unresolved reference 'onError'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:94:38 Unresolved reference 'errorContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:95:40 Unresolved reference 'onErrorContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:96:31 Unresolved reference 'outline'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:97:38 Unresolved reference 'outlineVariant'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:98:29 Unresolved reference 'scrim'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:99:37 Unresolved reference 'surfaceBright'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:100:34 Unresolved reference 'surfaceDim'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:101:40 Unresolved reference 'surfaceContainer'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:102:44 Unresolved reference 'surfaceContainerHigh'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:103:47 Unresolved reference 'surfaceContainerHighest'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:104:43 Unresolved reference 'surfaceContainerLow'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:105:46 Unresolved reference 'surfaceContainerLowest'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:106:36 Unresolved reference 'primaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:107:39 Unresolved reference 'primaryFixedDim'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:108:38 Unresolved reference 'onPrimaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:109:45 Unresolved reference 'onPrimaryFixedVariant'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:110:38 Unresolved reference 'secondaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:111:41 Unresolved reference 'secondaryFixedDim'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:112:40 Unresolved reference 'onSecondaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:113:47 Unresolved reference 'onSecondaryFixedVariant'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:114:37 Unresolved reference 'tertiaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:115:40 Unresolved reference 'tertiaryFixedDim'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:116:39 Unresolved reference 'onTertiaryFixed'.
-e: file:///home/runner/work/orangechat/orangechat/material3/src/main/java/me/rerere/material3/DynamicSchemeExt.kt:117:46 Unresolved reference 'onTertiaryFixedVariant'.
-
+> Task :app:compileDebugAidl
 > Task :document:compileDebugJavaWithJavac
+> Task :app:generateDebugBuildConfig
+> Task :app:extractDebugSupportedLocales
+> Task :app:mapDebugSourceSetPaths
+
+> Task :app:compileDebugAidl FAILED
+ERROR: /home/runner/work/orangechat/orangechat/app/src/main/aidl/me/rerere/rikkahub/data/shizuku/IShizukuProbe.aidl:4.9-17: You must either assign id's to all methods or to none of them.
+
+
+> Task :material3:compileDebugKotlin
+w: file:///home/runner/work/orangechat/orangechat/material3/material-color-utilities/kotlin/dynamiccolor/ColorSpec2025.kt:904:37 Unnecessary non-null assertion (!!) on a non-null receiver of type 'DynamicColor'.
+w: file:///home/runner/work/orangechat/orangechat/material3/material-color-utilities/kotlin/dynamiccolor/ColorSpec2025.kt:1107:36 Unnecessary non-null assertion (!!) on a non-null receiver of type 'DynamicColor'.
+w: file:///home/runner/work/orangechat/orangechat/material3/material-color-utilities/kotlin/dynamiccolor/ColorSpec2025.kt:1253:33 Unnecessary non-null assertion (!!) on a non-null receiver of type 'DynamicColor'.
+
 > Task :ai:extractDebugAnnotations
 > Task :app:generateDebugLocaleConfig
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':material3:compileDebugKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.btapi.BuildToolsApiCompilationWork
-   > Compilation error. See log for more details
+Execution failed for task ':app:compileDebugAidl'.
+> A failure occurred while executing com.android.build.gradle.tasks.AidlCompile$AidlCompileRunnable
+   > com.android.ide.common.process.ProcessException: Error while executing process /usr/local/lib/android/sdk/build-tools/36.0.0/aidl with arguments {-p/usr/local/lib/android/sdk/platforms/android-37.0/framework.aidl -o/home/runner/work/orangechat/orangechat/app/build/generated/aidl_source_output_dir/debug/out -I/home/runner/work/orangechat/orangechat/app/src/main/aidl -I/home/runner/work/orangechat/orangechat/app/src/debug/aidl -I/home/runner/.gradle/caches/9.4.1/transforms/077960302a4322eb0f83383c5744daba/transformed/core-1.18.0/aidl -I/home/runner/.gradle/caches/9.4.1/transforms/080e67081ed15e0ef6e3935cc3906764/transformed/versionedparcelable-1.1.1/aidl -d/tmp/aidl7744051227053032924.d /home/runner/work/orangechat/orangechat/app/src/main/aidl/me/rerere/rikkahub/data/shizuku/IShizukuProbe.aidl}
 
 * Try:
 > Run with --info or --debug option to get more log output.
@@ -736,7 +645,7 @@ Execution failed for task ':material3:compileDebugKotlin'.
 > Get more help at https://help.gradle.org.
 
 * Exception is:
-org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':material3:compileDebugKotlin'.
+org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:compileDebugAidl'.
 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:135)
 	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:288)
 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:133)
@@ -770,7 +679,7 @@ org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':materia
 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:47)
-Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionException: A failure occurred while executing org.jetbrains.kotlin.compilerRunner.btapi.BuildToolsApiCompilationWork
+Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionException: A failure occurred while executing com.android.build.gradle.tasks.AidlCompile$AidlCompileRunnable
 	at org.gradle.workers.internal.DefaultWorkerExecutor$WorkItemExecution.waitForCompletion(DefaultWorkerExecutor.java:289)
 	at org.gradle.internal.work.DefaultAsyncWorkTracker.lambda$waitForItemsAndGatherFailures$2(DefaultAsyncWorkTracker.java:130)
 	at org.gradle.internal.Factories$1.create(Factories.java:30)
@@ -885,9 +794,10 @@ Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionExcept
 	at org.gradle.internal.execution.impl.DefaultExecutionEngine$1.execute(DefaultExecutionEngine.java:68)
 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:132)
 	... 30 more
-Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilation error. See log for more details
-	at org.jetbrains.kotlin.gradle.tasks.TasksUtilsKt.throwExceptionIfCompilationFailed(tasksUtils.kt:21)
-	at org.jetbrains.kotlin.compilerRunner.btapi.BuildToolsApiCompilationWork.execute(BuildToolsApiCompilationWork.kt:295)
+Caused by: java.io.IOException: com.android.ide.common.process.ProcessException: Error while executing process /usr/local/lib/android/sdk/build-tools/36.0.0/aidl with arguments {-p/usr/local/lib/android/sdk/platforms/android-37.0/framework.aidl -o/home/runner/work/orangechat/orangechat/app/build/generated/aidl_source_output_dir/debug/out -I/home/runner/work/orangechat/orangechat/app/src/main/aidl -I/home/runner/work/orangechat/orangechat/app/src/debug/aidl -I/home/runner/.gradle/caches/9.4.1/transforms/077960302a4322eb0f83383c5744daba/transformed/core-1.18.0/aidl -I/home/runner/.gradle/caches/9.4.1/transforms/080e67081ed15e0ef6e3935cc3906764/transformed/versionedparcelable-1.1.1/aidl -d/tmp/aidl7744051227053032924.d /home/runner/work/orangechat/orangechat/app/src/main/aidl/me/rerere/rikkahub/data/shizuku/IShizukuProbe.aidl}
+	at com.android.builder.internal.compiler.AidlProcessor.call(AidlProcessor.java:90)
+	at com.android.build.gradle.tasks.AidlCompile$AidlCompileRunnable.run(AidlCompile.kt:217)
+	at com.android.build.gradle.internal.profile.ProfileAwareWorkAction.execute(ProfileAwareWorkAction.kt:66)
 	at org.gradle.workers.internal.DefaultWorkerServer.execute(DefaultWorkerServer.java:68)
 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:64)
 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:61)
@@ -918,7 +828,16 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runBatch(DefaultConditionalExecutionQueue.java:164)
 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.run(DefaultConditionalExecutionQueue.java:133)
 	... 2 more
+Caused by: com.android.ide.common.process.ProcessException: Error while executing process /usr/local/lib/android/sdk/build-tools/36.0.0/aidl with arguments {-p/usr/local/lib/android/sdk/platforms/android-37.0/framework.aidl -o/home/runner/work/orangechat/orangechat/app/build/generated/aidl_source_output_dir/debug/out -I/home/runner/work/orangechat/orangechat/app/src/main/aidl -I/home/runner/work/orangechat/orangechat/app/src/debug/aidl -I/home/runner/.gradle/caches/9.4.1/transforms/077960302a4322eb0f83383c5744daba/transformed/core-1.18.0/aidl -I/home/runner/.gradle/caches/9.4.1/transforms/080e67081ed15e0ef6e3935cc3906764/transformed/versionedparcelable-1.1.1/aidl -d/tmp/aidl7744051227053032924.d /home/runner/work/orangechat/orangechat/app/src/main/aidl/me/rerere/rikkahub/data/shizuku/IShizukuProbe.aidl}
+	at com.android.build.gradle.internal.process.GradleProcessResult.buildProcessException(GradleProcessResult.java:73)
+	at com.android.build.gradle.internal.process.GradleProcessResult.assertNormalExitValue(GradleProcessResult.java:48)
+	at com.android.builder.internal.compiler.AidlProcessor.call(AidlProcessor.java:88)
+	... 33 more
+Caused by: org.gradle.process.ProcessExecutionException: Process 'command '/usr/local/lib/android/sdk/build-tools/36.0.0/aidl'' finished with non-zero exit value 1
+	at org.gradle.process.internal.DefaultExecHandle$ExecResultImpl.assertNormalExitValue(DefaultExecHandle.java:459)
+	at com.android.build.gradle.internal.process.GradleProcessResult.assertNormalExitValue(GradleProcessResult.java:46)
+	... 34 more
 
 
-BUILD FAILED in 2m 6s
-66 actionable tasks: 46 executed, 20 from cache
+BUILD FAILED in 2m 19s
+66 actionable tasks: 45 executed, 21 from cache

@@ -582,6 +582,8 @@ fun SettingSystemToolsPage(vm: SettingVM = koinViewModel()) {
             }
 
 
+            item { ShizukuConnectionCard() }
+
             // Gadgetbridge 健康数据
             item {
             CardGroup(

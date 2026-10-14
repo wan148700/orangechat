@@ -3,6 +3,13 @@ on:
   push:
     branches: [feature/task-group-room]
     paths:
+      - 'app/src/main/aidl/**'
+      - 'app/src/main/java/me/rerere/rikkahub/data/shizuku/**'
+      - 'app/src/main/java/me/rerere/rikkahub/data/ai/tools/local/ShizukuStatusTool.kt'
+      - 'app/src/main/java/me/rerere/rikkahub/ui/pages/setting/ShizukuConnectionCard.kt'
+      - 'app/src/main/java/me/rerere/rikkahub/ui/pages/setting/SettingSystemToolsPage.kt'
+      - 'app/src/main/java/me/rerere/rikkahub/service/ChatService.kt'
+      - 'app/build.gradle.kts'
       - 'app/src/main/java/me/rerere/rikkahub/RouteActivity.kt'
       - 'app/src/main/java/me/rerere/rikkahub/ui/pages/chat/ChatDrawer.kt'
       - 'app/src/main/java/me/rerere/rikkahub/ui/pages/group/**'

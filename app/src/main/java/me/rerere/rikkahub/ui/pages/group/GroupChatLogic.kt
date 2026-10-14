@@ -117,7 +117,7 @@ internal fun groupSyncMessages(room: GroupRoom, recipientKey: String): List<UIMe
     }
 
 internal fun isMemberConversationRequest(text: String): Boolean =
-    Regex("互相.*(聊|讨论|说)|你们.*(聊|讨论)|彼此.*(聊|讨论)").containsMatchIn(text)
+    Regex("互聊|互相.*(聊|讨论|说)|你们.*(聊|讨论)|彼此.*(聊|讨论)").containsMatchIn(text)
 
 internal fun memberConversationPlan(keys: List<String>, rounds: Int): List<String> =
     if (keys.size < 2) emptyList() else List(rounds.coerceIn(1, 6)) { keys }.flatten().take(24)
@@ -136,3 +136,9 @@ internal fun groupOriginalHistory(messages: List<UIMessage>, limit: Int): List<U
     .filter { it.role == MessageRole.USER || it.role == MessageRole.ASSISTANT }
     .takeLast(limit.coerceAtLeast(1))
     .map { it.copy(parts = listOf(UIMessagePart.Text(it.toText()))) }
+
+internal fun memberConversationTargets(text: String, targets: List<MentionTarget>): List<String> =
+    mentionedMemberKeys(text, targets).ifEmpty {
+        val named = targets.filter { text.contains(it.label, ignoreCase = true) }.map { it.key }
+        named.takeIf { it.size >= 2 } ?: targets.map { it.key }
+    }

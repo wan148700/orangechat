@@ -264,10 +264,8 @@ fun GroupRoomPage(
             val acknowledgement = isAcknowledgementTask(userText.orEmpty())
             val continuous = !acknowledgement && (discuss || first.automaticDiscussion)
             val waves = if (continuous) first.discussionRounds.coerceIn(1, 6) else 1
-            val speakerKeys = mentions.ifEmpty {
-                val named = if (memberConversation) participants.filter { userText.orEmpty().contains(it.label, ignoreCase = true) }.map { it.key } else emptyList()
-                named.takeIf { it.size >= 2 } ?: participants.map { it.key }
-            }
+            val speakerKeys = if (memberConversation) memberConversationTargets(userText.orEmpty(), targets)
+                else mentions.ifEmpty { participants.map { it.key } }
             val plan = if (memberConversation) memberConversationPlan(speakerKeys, if (userText?.contains("两句") == true) 1 else first.discussionRounds) else emptyList()
             val memberPlan = plan.toMutableList()
             var planIndex = 0

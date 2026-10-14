@@ -119,5 +119,12 @@ class GroupChatLogicTest {
         assertEquals(24, memberConversationPlan(listOf("a", "b", "c", "d", "e"), 6).size)
         assertEquals(emptyList<String>(), memberConversationPlan(listOf("a"), 3))
     }
+
+    @Test fun namedPairDoesNotInviteTheEntireGroup() {
+        val targets = listOf(MentionTarget("d", "DeepSeek"), MentionTarget("c", "Claude"), MentionTarget("k", "Kimi"))
+        assertEquals(true, isMemberConversationRequest("DeepSeek和claude互聊"))
+        assertEquals(listOf("d", "c"), memberConversationTargets("DeepSeek和claude互聊", targets))
+        assertEquals(listOf("d", "c", "k"), memberConversationTargets("你们互相聊两句", targets))
+    }
 }
 

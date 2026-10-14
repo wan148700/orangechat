@@ -27,6 +27,8 @@ internal data class GroupRoom(
     val conversationBindings: Map<String, String> = emptyMap(),
     val discussionRounds: Int = 3,
     val automaticDiscussion: Boolean = false,
+    val backgroundPath: String = "",
+    val backgroundOpacity: Float = 1f,
 ) {
     val memberKeys get() = assistantIds.map { "assistant:$it" } + modelIds.map { "model:$it" }
 }
@@ -41,7 +43,7 @@ internal class GroupTurnQueue(
     private val pending = initialTargets.distinct().filter { it in members }.toMutableList()
     private val limit = (if (waves > 1) members.size * waves else maxOf(members.size, 6)).coerceAtMost(24)
     private var turns = 0
-    private var wave = 1
+
 
     fun next(): String? {
         if (turns >= limit || pending.isEmpty()) return null
@@ -57,10 +59,7 @@ internal class GroupTurnQueue(
     }
 
     fun finishTurn() {
-        if (pending.isEmpty() && wave < waves) {
-            wave++
-            pending.addAll(members)
-        }
+        // No automatic roll-call: only a new, directed request may add a turn.
     }
 }
 
@@ -86,3 +85,19 @@ internal fun groupSyncMessages(room: GroupRoom, recipientKey: String): List<UIMe
         modelId = if (ownReply) line.message?.modelId else null,
     )
 }
+
+
+/** A mention in agreement is not an invitation to generate another message. */
+internal fun requestedMemberKeys(text: String, targets: List<MentionTarget>): List<String> {
+    val request = Regex("[?？]|请|能否|怎么看|你觉得|你认为|说说|回答|分析|解释|补充一下|检查一下|评估|讨论一下|\\b(can you|could you|please|what do you think)\\b", RegexOption.IGNORE_CASE)
+    return if (request.containsMatchIn(text)) mentionedMemberKeys(text, targets) else emptyList()
+}
+
+internal fun isAcknowledgementTask(text: String): Boolean =
+    Regex("收到.*(回复|回答)|回复.*收到|测试消息|打个招呼|确认.*(在线|收到)").containsMatchIn(text)
+
+internal fun groupOriginalHistory(messages: List<UIMessage>, limit: Int): List<UIMessage> = messages
+    .filterNot { it.toText().startsWith("[群聊·") }
+    .filter { it.role == MessageRole.USER || it.role == MessageRole.ASSISTANT }
+    .takeLast(limit.coerceAtLeast(1))
+    .map { it.copy(parts = listOf(UIMessagePart.Text(it.toText()))) }

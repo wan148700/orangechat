@@ -47,4 +47,38 @@ class GroupChatLogicTest {
         assertEquals("b", queue.next())
         assertEquals(null, queue.next())
     }
+
+    @Test fun agreementMentionsDoNotRequestAnotherReply() {
+        assertEquals(emptyList<String>(), requestedMemberKeys("@Ann +1，你说得对。", members))
+        assertEquals(emptyList<String>(), requestedMemberKeys("@Anna 随时喊我，我在。", members))
+        assertEquals(listOf("b"), requestedMemberKeys("@Anna，你怎么看这个方案？", members))
+    }
+
+    @Test fun discussionDoesNotRestartRollCallWhenQueueIsEmpty() {
+        val queue = GroupTurnQueue(listOf("a", "b"), listOf("a", "b"), waves = 6)
+        assertEquals("a", queue.next())
+        queue.finishTurn()
+        assertEquals("b", queue.next())
+        queue.finishTurn()
+        assertEquals(null, queue.next())
+    }
+
+    @Test fun acknowledgementTasksAndRoomBackgroundSurviveSerialization() {
+        assertEquals(true, isAcknowledgementTask("@全体 测试消息，收到请回答"))
+        assertEquals(false, isAcknowledgementTask("讨论一下如何修复同步"))
+        val room = GroupRoom(title = "测试", backgroundPath = "/private/group.jpg")
+        val json = kotlinx.serialization.json.Json
+        val restored = json.decodeFromString<GroupRoom>(json.encodeToString(GroupRoom.serializer(), room))
+        assertEquals(room.backgroundPath, restored.backgroundPath)
+    }
+
+    @Test fun originalContextKeepsDialogueAndExcludesSyncedGroupEvents() {
+        val history = groupOriginalHistory(listOf(
+            UIMessage.user("我喜欢蓝色"), UIMessage.assistant("记住了"),
+            UIMessage.user("[群聊·任务｜我]\n开始"), UIMessage.system("不要作为聊天历史")
+        ), 24)
+        assertEquals(listOf("我喜欢蓝色", "记住了"), history.map { it.toText() })
+        assertEquals(listOf(MessageRole.USER, MessageRole.ASSISTANT), history.map { it.role })
+    }
 }
+

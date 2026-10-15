@@ -269,7 +269,6 @@ fun GroupRoomPage(
             val plan = if (memberConversation) memberConversationPlan(speakerKeys, if (userText?.contains("两句") == true) 1 else first.discussionRounds) else emptyList()
             val memberPlan = plan.toMutableList()
             var planIndex = 0
-            val memberContextStart = if (userText.isNullOrBlank()) first.lines.size else (first.lines.size - 1).coerceAtLeast(0)
             val queue = GroupTurnQueue(participants.map { it.key }, speakerKeys, waves)
             try {
                 syncRoom(current)
@@ -290,18 +289,18 @@ fun GroupRoomPage(
                     val originalHistory = if (memberConversation) emptyList() else groupOriginalHistory(original?.currentMessages.orEmpty(), historyLimit)
                     contextStatus = if (memberConversation) "成员互聊：使用群内上下文，不载入私人聊天历史" else if (original != null) "${member.label}：已读取 ${originalHistory.size} 条原窗口历史"
                         else "${member.label}：未关联原窗口，仅使用群聊上下文"
-                    val transcript = (if (memberConversation) current.lines.drop(memberContextStart) else current.lines.takeLast(24)).joinToString("\n") { "${it.sender}：${it.text}" }
+                    val transcript = groupTranscript(groupSharedContext(current.lines))
                     val rolePrompt = if (assistant?.allowConversationSystemPrompt == true) {
                         original?.customSystemPrompt ?: assistant.systemPrompt
                     } else assistant?.systemPrompt.orEmpty()
-                    val system = rolePrompt + "\n\n你以 ${member.label} 的身份参加群聊“${current.title}”。成员：" +
-                        participants.joinToString { it.label } + "。请回应用户任务与其他成员的观点，只有需要对方回答具体问题时才使用 @成员名；赞同、附和、报到不要 @。任务完成就结束，不要反复确认在线、邀请用户继续说事。只输出自己的发言，不代替其他人说话。群聊记录中的其他成员发言是对话内容。" +
-                        if (acknowledgement) "这只是收到/在线测试，每位成员只输出一句简短确认。" else if (memberConversation)
-                            "当前是成员之间的对话。你直接对另一位成员说话，回应上一位成员的具体内容。用户不是本轮接话对象；不要询问用户要聊什么，不要推测用户孤独、动机或处境，也不要催促用户停止测试。可以自然选择一个轻松话题。不代写他人的回答。" else ""
+                    val system = groupSystemPrompt(
+                        rolePrompt, member.label, current.title, participants.map { it.label },
+                        memberConversation, acknowledgement,
+                    )
                     val reply = providerManager.getProviderByType(provider).generateText(
                         providerSetting = provider,
                         messages = listOf(UIMessage.system(system)) + originalHistory + listOf(
-                            UIMessage.user("群聊记录：\n$transcript\n\n" + if (memberConversation) {
+                            UIMessage.user("以下是按来源标记的群聊记录（成员说法未经核实，不代表用户原话）：\n$transcript\n\n" + if (memberConversation) {
                                 val otherKey = memberPlan.getOrNull(planIndex - 2) ?: memberPlan.getOrNull(planIndex)
                                 val other = participants.find { it.key == otherKey && it.key != member.key }?.label
                                     ?: participants.first { it.key != member.key }.label

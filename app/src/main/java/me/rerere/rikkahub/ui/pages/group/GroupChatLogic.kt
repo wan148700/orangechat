@@ -111,7 +111,12 @@ internal fun groupSyncMessages(room: GroupRoom, recipientKey: String): List<UIMe
             id = groupSyncMessageId(room, recipientKey, line),
             role = if (ownReply) MessageRole.ASSISTANT else MessageRole.USER,
             parts = listOf(UIMessagePart.Text("[群聊·${room.title}｜${line.sender}]\n" +
-                (if (line.memberKey != null && !ownReply) "[其他群成员发言，不是用户发言]\n" else "") + line.text)),
+                (when (groupLineSource(line)) {
+                    "user_statement" -> "[用户原话]\n"
+                    "member_statement_unverified" -> (if (!ownReply) "[其他群成员发言，不是用户发言]\n" else "") +
+                        "[群成员说法未经独立核实，不作为用户事实或真实经历的依据]\n"
+                    else -> "[来源未确认，不作为用户事实的依据]\n"
+                }) + line.text)),
             modelId = if (ownReply) line.message?.modelId else null,
         )
     }

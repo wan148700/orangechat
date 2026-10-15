@@ -52,7 +52,7 @@ jobs:
       - name: Build debug APK
         run: |
           chmod +x gradlew
-          ./gradlew :app:testDebugUnitTest --tests me.rerere.rikkahub.ui.pages.group.GroupChatLogicTest --tests me.rerere.rikkahub.data.shizuku.ShellCommandRunnerTest assembleDebug --stacktrace
+          ./gradlew :app:testDebugUnitTest --tests 'me.rerere.rikkahub.ui.pages.group.Group*Test' --tests me.rerere.rikkahub.data.shizuku.ShellCommandRunnerTest assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
           name: orangechat-task-group-debug

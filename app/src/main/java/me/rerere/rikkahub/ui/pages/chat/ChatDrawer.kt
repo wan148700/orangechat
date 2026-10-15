@@ -230,7 +230,7 @@ fun ChatDrawerContent(
         Box(modifier = Modifier.fillMaxSize()) {
             // 侧边栏背景图（最底层；实时模糊时跳过，避免遮挡 ChatPage 模糊层）
             val drawerBgPath = settings.displaySetting.drawerBackgroundPath
-            if (drawerBgPath.isNotEmpty() && !useLiveDrawerGlass) {
+            if (drawerBgPath.isNotEmpty()) {
                 val bgFile = java.io.File(drawerBgPath)
                 if (bgFile.exists()) {
                     val bgBitmap = remember(drawerBgPath) {
@@ -242,7 +242,7 @@ fun ChatDrawerContent(
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .alpha(0.15f),
+                                .alpha(1f),
                             contentScale = ContentScale.Crop,
                         )
                     }
@@ -316,6 +316,20 @@ fun ChatDrawerContent(
                     Greeting(
                         style = MaterialTheme.typography.labelMedium,
                     )
+                }
+            }
+
+            Surface(
+                onClick = { navController.navigate(Screen.GroupRoom) },
+                modifier = Modifier.fillMaxWidth().alpha(settings.displaySetting.drawerItemAlpha),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
+            ) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(HugeIcons.Sparkles, contentDescription = null)
+                    Text("群聊", style = MaterialTheme.typography.bodyMedium)
                 }
             }
 
@@ -1157,3 +1171,4 @@ private fun AssistantItem(
         }
     }
 }
+

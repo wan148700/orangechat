@@ -723,6 +723,8 @@ data class DisplaySetting(
     val aiAvatarFrameScale: Float = 1f,
     // 侧边栏背景
     val drawerBackgroundPath: String = "",
+    val groupChatBackgroundPath: String = "",
+    val groupListBackgroundPath: String = "",
     // 侧边栏根面板不透明度（百分比）
     val drawerSurfaceOpacity: Float = 100f,
     // 侧边栏元素透明度
@@ -886,3 +888,4 @@ val DEFAULT_MODE_INJECTIONS = listOf(
         name = "Learning Mode"
     )
 )
+

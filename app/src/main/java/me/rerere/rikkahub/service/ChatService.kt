@@ -1555,6 +1555,47 @@ addAll(localTools.getTools(assistant.localTools, me.rerere.rikkahub.data.ai.tool
         }
     }
 
+    /** Append identified group events without replacing existing chat or racing an active reply. */
+    suspend fun appendGroupMessages(
+        conversationId: Uuid,
+        assistantId: Uuid,
+        messages: List<UIMessage>,
+        obsoleteGroupIds: Set<Uuid> = emptySet(),
+    ): Boolean {
+        val session = getOrCreateSession(conversationId)
+        return session.withRefSuspend {
+            session.saveMutex.withLock {
+                if (session.isGenerating) return@withLock false
+                val current = conversationRepo.getConversationById(conversationId)
+                    ?: error("关联的原会话不存在")
+                require(current.assistantId == assistantId) { "原会话不属于这个角色" }
+                if (session.isGenerating) return@withLock false
+                // Only remove entire nodes created by the old group bridge, never user-authored nodes.
+                val keptNodes = current.messageNodes.filterNot { node ->
+                    node.messages.isNotEmpty() && node.messages.all { message ->
+                        message.id in obsoleteGroupIds && message.toText().startsWith("[群聊·")
+                    }
+                }
+                val pruned = keptNodes.size != current.messageNodes.size
+                if (pruned) {
+                    val backupDir = java.io.File(context.filesDir, "group_sync_backups").apply { mkdirs() }
+                    java.io.File(backupDir, "$conversationId-${java.util.UUID.randomUUID()}.json").writeText(
+                        kotlinx.serialization.json.Json.encodeToString(Conversation.serializer(), current)
+                    )
+                }
+                val existing = keptNodes.flatMap { it.messages }.map { it.id }.toSet()
+                val additions = messages.filterNot { it.id in existing }.distinctBy { it.id }
+                if (additions.isNotEmpty() || pruned) {
+                    saveConversation(conversationId, current.copy(
+                        messageNodes = keptNodes + additions.map { it.toMessageNode() },
+                        updateAt = Instant.now(),
+                    ))
+                }
+                true
+            }
+        }
+    }
+
     // ---- 翻译消息 ----
 
     fun translateMessage(
@@ -1900,3 +1941,4 @@ addAll(localTools.getTools(assistant.localTools, me.rerere.rikkahub.data.ai.tool
         return null
     }
 }
+

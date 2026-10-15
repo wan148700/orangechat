@@ -1,0 +1,59 @@
+name: Check task group APK
+on:
+  push:
+    branches: [feature/task-group-room]
+    paths:
+      - 'app/src/main/aidl/**'
+      - 'app/src/main/java/me/rerere/rikkahub/data/shizuku/**'
+      - 'app/src/main/java/me/rerere/rikkahub/data/ai/tools/local/Shizuku*.kt'
+      - 'app/src/test/java/me/rerere/rikkahub/data/shizuku/**'
+      - 'app/src/main/java/me/rerere/rikkahub/ui/pages/setting/ShizukuConnectionCard.kt'
+      - 'app/src/main/java/me/rerere/rikkahub/ui/pages/setting/SettingSystemToolsPage.kt'
+      - 'app/src/main/java/me/rerere/rikkahub/service/ChatService.kt'
+      - 'app/build.gradle.kts'
+      - 'app/src/main/java/me/rerere/rikkahub/RouteActivity.kt'
+      - 'app/src/main/java/me/rerere/rikkahub/ui/pages/chat/ChatDrawer.kt'
+      - 'app/src/main/java/me/rerere/rikkahub/ui/pages/group/**'
+      - 'app/src/debug/**'
+      - 'app/src/main/res/**'
+      - 'app/src/main/AndroidManifest.xml'
+      - '.github/workflows/check-task-group.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch color utilities
+        run: git submodule update --init material3/material-color-utilities
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install web UI dependencies
+        run: |
+          npm install -g pnpm@10
+          cd web-ui
+          pnpm install --frozen-lockfile
+      - name: Configure Firebase
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
+          else
+            printf '{"project_info":{"project_number":"1","project_id":"local-build","storage_bucket":"local-build.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:1:android:1234567890abcdef","android_client_info":{"package_name":"me.rerere.rikkahub"}},"api_key":[{"current_key":"local-build-key"}]}],"configuration_version":"1"}' > app/google-services.json
+          fi
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest --tests 'me.rerere.rikkahub.ui.pages.group.Group*Test' --tests me.rerere.rikkahub.data.shizuku.ShellCommandRunnerTest assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orangechat-task-group-debug
+          path: app/build/outputs/apk/debug/*.apk

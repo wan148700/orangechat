@@ -141,7 +141,7 @@ import kotlin.uuid.Uuid
  * 所有磁盘/流解码都在 Dispatchers.IO 中执行；网络等复杂 model 走项目现有
  * Coil 3.4 SingletonImageLoader（不在本函数内做网络阻塞）。
  */
-private suspend fun decodeChatBackgroundBitmap(
+internal suspend fun decodeChatBackgroundBitmap(
     context: Context,
     model: String,
 ): ImageBitmap? = withContext(Dispatchers.IO) {
